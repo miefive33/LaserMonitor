@@ -12,7 +12,7 @@
         <Border Style="{StaticResource CardStyle}" Grid.Column="0">
             <StackPanel>
                 <TextBlock Text="本日のサマリー" Style="{StaticResource TitleText}"/>
-                <oxy:PlotView Model="{Binding PieModel}"
+                <oxy:PlotView x:Name="PiePlot" Model="{Binding PieModel, RelativeSource={RelativeSource AncestorType=UserControl}}"
                   Width="180"
                   Height="180"
                   Background="Transparent"/>

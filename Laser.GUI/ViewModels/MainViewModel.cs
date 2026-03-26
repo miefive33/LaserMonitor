@@ -1,24 +1,53 @@
-﻿using System;
-using System.IO;
-using System.Windows.Input;
+﻿using Laser.Core.Models;
+using Laser.Core.Parsers;
+using Laser.GUI.Commands;
 using Microsoft.Win32;
 using System.Collections.Generic;
-using Laser.Core.Models;
-using Laser.Core.Parsers;
-using Laser.Core.Services;
-using Laser.GUI.Commands;
+using System.ComponentModel;
+using System.Windows.Input;
 
 namespace Laser.GUI.ViewModels
 {
-    public class MainViewModel
+    public class MainViewModel : INotifyPropertyChanged
     {
         public ICommand LoadLogCommand { get; }
 
         public MainViewModel()
         {
             LoadLogCommand = new RelayCommand(LoadLog);
+
+            // 起動時に自動読み込み（必要なら残す）
+            LoadLogFromFile(@"C:\Users\nanoa\Documents\Cs\LaserMonitor\2603M1.txt");
         }
 
+        // =========================
+        // ★ ここが重要
+        // =========================
+        private List<LogEvent> _events;
+
+        public List<LogEvent> Events
+        {
+            get => _events;
+            set
+            {
+                _events = value;
+                OnPropertyChanged(nameof(Events));
+            }
+        }
+
+        // =========================
+        // INotifyPropertyChanged
+        // =========================
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected void OnPropertyChanged(string name)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+        // =========================
+        // ログ読み込み
+        // =========================
         private void LoadLog()
         {
             var dialog = new OpenFileDialog
@@ -28,17 +57,16 @@ namespace Laser.GUI.ViewModels
 
             if (dialog.ShowDialog() != true) return;
 
-            var filePath = dialog.FileName;
+            LoadLogFromFile(dialog.FileName);
+        }
 
-            var lines = File.ReadAllLines(filePath);
-
+        private void LoadLogFromFile(string filePath)
+        {
             var parser = new LogParser();
-            List<LogEvent> events = parser.Load(filePath);
+            var events = parser.Load(filePath);
 
-            var db = new SqliteService("laser.db");
-            db.InsertLogEvents(events);
-
-            System.Windows.MessageBox.Show("DB保存完了！");
+            // ★ ここだけでOK（解析しない）
+            Events = events;
         }
     }
 }
