@@ -1,0 +1,72 @@
+# =========================
+# Build / Output
+# =========================
+bin/
+obj/
+Debug/
+Release/
+x64/
+x86/
+
+# =========================
+# Visual Studio
+# =========================
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# =========================
+# NuGet
+# =========================
+packages/
+*.nupkg
+*.snupkg
+
+# packages.configは残す
+!packages.config
+
+# =========================
+# Logs / DB / Temp
+# =========================
+*.log
+*.db
+*.sqlite
+*.db-shm
+*.db-wal
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Publish
+# =========================
+publish/
+*.publish.xml
+
+# =========================
+# Rider / VSCode (念のため)
+# =========================
+.idea/
+.vscode/
+
+# =========================
+# Test / Coverage
+# =========================
+TestResults/
+*.coverage
+*.coveragexml
+
+# =========================
+# AI / Docs（ここ重要）
+# =========================
+
+# docs_for_ai は必ず含める
+!docs_for_ai/
+
+# READMEも含める
+!README.md

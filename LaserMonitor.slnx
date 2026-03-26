@@ -1,0 +1,12 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Project Path="Laser.Core/Laser.Core.csproj" Id="37ebdb04-f006-4007-9e97-685c73784356">
+    <Platform Solution="*|x64" Project="x64" />
+  </Project>
+  <Project Path="Laser.GUI/Laser.GUI.csproj" Id="551435c4-5938-4025-ac0b-577ce847eccf">
+    <Platform Solution="Release|x64" Project="x64" />
+  </Project>
+</Solution>

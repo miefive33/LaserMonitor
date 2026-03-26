@@ -1,0 +1,58 @@
+﻿<UserControl x:Class="Laser.GUI.Views.BottomPanelView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:oxy="http://oxyplot.org/wpf">
+    
+    <Grid Background="Transparent">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+
+        <Border Style="{StaticResource CardStyle}" Grid.Column="0">
+            <StackPanel>
+                <TextBlock Text="時間帯別稼働率" Style="{StaticResource TitleText}"/>
+                <TextBlock Text="08:00-12:00 85%" Foreground="White"/>
+                <TextBlock Text="12:00-16:00 62%" Foreground="White"/>
+                <TextBlock Text="16:00-20:00 78%" Foreground="White"/>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Column="1"
+        Margin="10,0"
+        CornerRadius="10"
+        Background="#222831"
+        Padding="10">
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- タイトル -->
+                <TextBlock Text="週間稼働率"
+                   FontSize="14"
+                   FontWeight="Bold"
+                   Foreground="White"
+                   Margin="5"/>
+
+                <!-- グラフ -->
+                <oxy:PlotView x:Name="WeeklyChart"
+                      Grid.Row="1"
+                      Background="Transparent"/>
+            </Grid>
+        </Border>
+
+
+        <Border Style="{StaticResource CardStyle}" Grid.Column="2">
+            <StackPanel>
+                <TextBlock Text="Sheet A123" Style="{StaticResource TitleText}"/>
+                <TextBlock Text="ロード 08:12" Foreground="White"/>
+                <TextBlock Text="カット待機 08:15" Foreground="White"/>
+                <TextBlock Text="加工待ち 17%" Foreground="White"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
