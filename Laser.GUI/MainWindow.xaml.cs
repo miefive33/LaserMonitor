@@ -1,9 +1,11 @@
-﻿using Laser.Core.Services;
-using Laser.Core.Parsers;
+﻿using Laser.Core.Parsers;
+using Laser.Core.Services;
 using Laser.GUI.ViewModels;
 using Laser.GUI.Views;
 using System;
 using System.IO;
+using System.Linq;
+using System.Reflection.PortableExecutable;
 using System.Windows;
 
 namespace Laser.GUI
@@ -17,46 +19,36 @@ namespace Laser.GUI
         {
             InitializeComponent();
 
-            // 既存のVMはそのまま維持
+            // 🔥 日付変更イベント
+            HeaderView.DateChanged += OnDateChanged;
+
             DataContext = new MainViewModel();
 
-            // =========================
-            // 初期化
-            // =========================
             var dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "log.db");
 
             _sqliteService = new SqliteService(dbPath);
             _logParser = new LogParser();
 
-            // =========================
-            // HeaderViewのイベント接続
-            // =========================
             Loaded += MainWindow_Loaded;
         }
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            // =========================
-            // HeaderViewイベント
-            // =========================
             if (this.FindName("HeaderView") is HeaderView header)
             {
                 header.OnUpdateRequested += HandleUpdate;
                 header.OnReloadRequested += HandleReload;
             }
 
-            // =========================
-            // ★ここを追加（超重要）
-            // =========================
             if (DataContext is MainViewModel vm)
             {
-                // 初回描画
+                vm.Events = _sqliteService.GetAllLogEvents();
+
                 if (this.FindName("KpiPanel") is KpiPanelView panel)
                 {
                     panel.SetEvents(vm.Events);
                 }
 
-                // Events更新時に再描画
                 vm.PropertyChanged += (s, args) =>
                 {
                     if (args.PropertyName == "Events")
@@ -91,13 +83,13 @@ namespace Laser.GUI
 
                 _sqliteService.InsertLogEvents(logs, latest);
 
-                // ★追加：画面更新
                 if (DataContext is MainViewModel vm)
                 {
-                    vm.Events = logs;
+                    vm.Events = _sqliteService.GetAllLogEvents();
+                    MessageBox.Show($"DB更新完了：{vm.Events.Count}件");
                 }
 
-                MessageBox.Show("差分更新が完了しました 👍");
+                
             }
             catch (Exception ex)
             {
@@ -134,7 +126,6 @@ namespace Laser.GUI
                 _sqliteService.ClearAll();
                 _sqliteService.InsertLogEvents(logs, null);
 
-                // ★追加：画面更新
                 if (DataContext is MainViewModel vm)
                 {
                     vm.Events = logs;
@@ -162,6 +153,36 @@ namespace Laser.GUI
             }
 
             return "";
+        }
+
+        // =========================
+        // 📅 日付変更
+        // =========================
+        private void OnDateChanged(DateTime date)
+        {
+            MessageBox.Show($"日付変更: {date:yyyy/MM/dd}");
+
+            LoadLog(date);
+        }
+
+        // =========================
+        // 🔥 日付フィルタ処理（これが今回の本体）
+        // =========================
+        private void LoadLog(DateTime date)
+        {
+            if (DataContext is not MainViewModel vm)
+                return;
+
+            var allEvents = _sqliteService.GetAllLogEvents();
+
+            var filtered = allEvents
+                .Where(e => e.Timestamp.Date == date.Date)
+                .ToList();
+
+            MessageBox.Show($"対象件数: {filtered.Count}");
+
+            // 🔥 ここが重要：ViewModel更新
+            vm.Events = filtered;
         }
     }
 }

@@ -13,11 +13,25 @@
                        DockPanel.Dock="Left"
                        Margin="10,0"/>
 
-            <!-- 中央：日付 -->
-            <TextBlock Text="2026年3月24日"
-                       Foreground="Orange"
-                       FontSize="20"
-                       HorizontalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+
+                <!-- 左矢印 -->
+                <Button Content="◀" Width="30" Margin="5"
+                    Click="PrevDate_Click"/>
+
+                <!-- 日付 -->
+                <TextBlock x:Name="DateText"
+                   Text="2026年3月24日"
+                   Foreground="Orange"
+                   FontSize="16"
+                   VerticalAlignment="Center"
+                   Margin="10,0"/>
+
+                <!-- 右矢印 -->
+                <Button Content="▶" Width="30" Margin="5"
+                    Click="NextDate_Click"/>
+
+            </StackPanel>
 
             <!-- 右：操作エリア -->
             <StackPanel Orientation="Horizontal"

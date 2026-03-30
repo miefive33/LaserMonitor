@@ -61,3 +61,42 @@ BottomPanel中央：
 
 If UI change is required:
 → MUST explain before modifying
+
+## 🤖 AI UI RULES（Codex用）
+
+### Layout（絶対固定）
+
+DO NOT:
+
+* add new panels
+* change layout structure
+* move existing components
+
+---
+
+### ✔ ALLOWED
+
+* add controls inside HeaderView
+* update content only
+
+---
+
+### HeaderView Rule（重要）
+
+HeaderView is the ONLY place for:
+
+* date selection
+* filters
+
+---
+
+### Data Handling
+
+DO NOT:
+
+* compute data in UI
+* transform data in UI
+
+ONLY:
+
+* display data

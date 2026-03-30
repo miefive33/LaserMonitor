@@ -72,3 +72,26 @@ module_responsibilities.md
 ui_design_constraints.md
 sqlite_design.md
 analyzer_responsibility_map.md
+
+
+🤖 AI STRICT RULES（Codex用・最重要）
+Allowed Flow（絶対）
+
+Log → Parser → Analyzer → Builder → SQLite → GUI
+
+❌ FORBIDDEN（絶対禁止）
+
+DO NOT:
+
+call Analyzer from GUI
+access SQLite from GUI
+calculate KPI outside Analyzer
+modify data flow
+add new architecture layers
+✔ ALLOWED
+GUI can trigger LoadLog(DateTime)
+GUI can display ViewModel data
+Priority（判断基準）
+Do NOT break architecture
+Do minimal changes
+Reuse existing methods

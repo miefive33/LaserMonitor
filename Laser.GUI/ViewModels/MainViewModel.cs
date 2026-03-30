@@ -16,8 +16,6 @@ namespace Laser.GUI.ViewModels
         {
             LoadLogCommand = new RelayCommand(LoadLog);
 
-            // 起動時に自動読み込み（必要なら残す）
-            LoadLogFromFile(@"C:\Users\nanoa\Documents\Cs\LaserMonitor\2603M1.txt");
         }
 
         // =========================

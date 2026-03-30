@@ -33,10 +33,25 @@ namespace Laser.Core.Parsers
                     DateTimeStyles.None,
                     out DateTime dt))
                 {
+                    var message = parts[1].Trim();
+
+                    string sheetName = "";
+
+                    if (message.Contains("Starting Load sheet"))
+                    {
+                        var index = message.IndexOf("sheet");
+
+                        if (index >= 0)
+                        {
+                            sheetName = message.Substring(index + 5).Trim();
+                        }
+                    }
+
                     list.Add(new LogEvent
                     {
                         Timestamp = dt,
-                        Message = parts[1].Trim()
+                        Message = message,
+                        SheetName = sheetName
                     });
                 }
             }

@@ -282,3 +282,58 @@ Analyzerの結果をUI用に整形
 4. 変換はBuilderのみ  
 
 👉 この分離を崩すとプロジェクトは壊れる
+
+
+## 🤖 AI RESPONSIBILITY RULES
+
+### GUI
+
+CAN:
+
+* display data
+* trigger events
+
+CANNOT:
+
+* calculate
+* analyze
+* access DB
+
+---
+
+### Analyzer
+
+CAN:
+
+* calculate KPI
+* analyze data
+
+CANNOT:
+
+* access UI
+* format UI data
+
+---
+
+### Builder
+
+CAN:
+
+* format for UI
+
+CANNOT:
+
+* recalculate KPI
+
+---
+
+### SqliteService
+
+CAN:
+
+* SELECT
+* INSERT
+
+CANNOT:
+
+* analyze data

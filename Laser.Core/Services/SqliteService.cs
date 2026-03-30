@@ -105,5 +105,35 @@ namespace Laser.Core.Services
                 command.ExecuteNonQuery();
             }
         }
+
+        public List<LogEvent> GetAllLogEvents()
+        {
+            var result = new List<LogEvent>();
+
+            using (var conn = new SQLiteConnection(_connectionString))
+            {
+                conn.Open();
+
+                string query = "SELECT Timestamp, Message FROM LogEvents ORDER BY Timestamp";
+
+                using (var cmd = new SQLiteCommand(query, conn))
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        var log = new LogEvent
+                        {
+                            Timestamp = DateTime.Parse(reader.GetString(0)),
+                            Message = reader.GetString(1)
+                        };
+
+                        result.Add(log);
+                    }
+                }
+            }
+
+            return result;
+        }
+
     }
 }

@@ -98,6 +98,17 @@ AIは以下の設計ドキュメントに従うこと：
 - sqlite_design.md :contentReference[oaicite:3]{index=3}
 - analyzer_responsibility_map.md :contentReference[oaicite:4]{index=4}
 
+## 🤖 AI Development Rule
+
+AI must follow:
+
+* Docs/AGENTS.md (highest priority)
+* architecture.md
+* module_responsibilities.md
+* ui_design_constraints.md
+
+If conflict occurs:
+→ Follow AGENTS.md
 ---
 
 ## 🚀 実行方法
@@ -128,3 +139,5 @@ AIは以下の設計ドキュメントに従うこと：
 👉 「設計をAIに理解させて開発する」
 
 ことを目的とした構成になっています。
+
+

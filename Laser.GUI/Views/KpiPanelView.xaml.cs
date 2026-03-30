@@ -123,14 +123,14 @@ namespace Laser.GUI.Views
             OnPropertyChanged(nameof(PieModel));
 
             // デバッグ表示
-            System.Windows.MessageBox.Show(
+            /*System.Windows.MessageBox.Show(
                 $"[KPI VIEW]\n" +
                 $"Cutting={summary.CuttingTime.TotalHours}\n" +
                 $"Setup={summary.SetupTime.TotalHours}\n" +
                 $"Idle={summary.IdleTime.TotalHours}\n" +
                 $"Error={summary.ErrorTime.TotalHours}\n" +
                 $"Total={summary.TotalTime.TotalHours}"
-            );
+            );*/
         }
 
         // INotifyPropertyChanged

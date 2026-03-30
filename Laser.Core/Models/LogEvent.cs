@@ -9,6 +9,7 @@ namespace Laser.Core.Models
         public string Message { get; set; }
         public string EventType { get; set; }
         public string RawText { get; set; }
+        public string SheetName { get; set; } = "";
 
         // ===== 時間分解（追加：DBはそのまま） =====
 
