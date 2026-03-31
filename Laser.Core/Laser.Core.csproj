@@ -66,8 +66,11 @@
     <Compile Include="Analyzers\ScheduleSplitter.cs" />
     <Compile Include="Analyzers\TimeEfficiencyAnalyzer.cs" />
     <Compile Include="Builders\DailyReportBuilder.cs" />
+    <Compile Include="Builders\KpiBuilder.cs" />
     <Compile Include="Models\DailySummary.cs" />
+    <Compile Include="Models\ErrorData.cs" />
     <Compile Include="Models\LogEvent.cs" />
+    <Compile Include="Models\LossData.cs" />
     <Compile Include="Models\OperationInterval.cs" />
     <Compile Include="Models\OrderInfo.cs" />
     <Compile Include="Models\SheetInfo.cs" />

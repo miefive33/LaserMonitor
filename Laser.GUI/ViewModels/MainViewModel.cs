@@ -1,4 +1,5 @@
-﻿using Laser.Core.Builders;
+﻿using Laser.Core.Analyzers;
+using Laser.Core.Builders;
 using Laser.Core.Models;
 using Laser.Core.Parsers;
 using Laser.Core.Services;
@@ -19,14 +20,22 @@ namespace Laser.GUI.ViewModels
 
         private readonly DashboardService _dashboardService;
         private readonly DailyReportBuilder _dailyReportBuilder;
+        private readonly KpiBuilder _kpiBuilder;
+        private readonly LossAnalyzer _lossAnalyzer;
+        private readonly ErrorAnalyzer _errorAnalyzer;
 
         public MainViewModel()
         {
             LoadLogCommand = new RelayCommand(LoadLog);
             _dashboardService = new DashboardService();
             _dailyReportBuilder = new DailyReportBuilder();
+            _kpiBuilder = new KpiBuilder();
+            _lossAnalyzer = new LossAnalyzer();
+            _errorAnalyzer = new ErrorAnalyzer();
             KpiSummary = new DailySummary { Date = DateTime.Today };
             PieModel = CreatePieModel(KpiSummary);
+            LossSummary = new List<string>();
+            ErrorSummary = new List<string>();
         }
 
         private List<LogEvent> _events;
@@ -65,11 +74,42 @@ namespace Laser.GUI.ViewModels
             }
         }
 
+        private List<string> _lossSummary;
+
+        public List<string> LossSummary
+        {
+            get => _lossSummary;
+            private set
+            {
+                _lossSummary = value;
+                OnPropertyChanged(nameof(LossSummary));
+            }
+        }
+
+        private List<string> _errorSummary;
+
+        public List<string> ErrorSummary
+        {
+            get => _errorSummary;
+            private set
+            {
+                _errorSummary = value;
+                OnPropertyChanged(nameof(ErrorSummary));
+            }
+        }
+
         public void UpdateKpi(DateTime date)
         {
             var sourceEvents = Events ?? new List<LogEvent>();
             var intervals = _dashboardService.Analyze(sourceEvents);
             KpiSummary = _dailyReportBuilder.Build(date, intervals);
+
+            var lossData = _lossAnalyzer.Analyze(intervals);
+            var errorData = _errorAnalyzer.Analyze(intervals);
+
+            LossSummary = _kpiBuilder.BuildLossSummary(lossData);
+            ErrorSummary = _kpiBuilder.BuildErrorSummary(errorData);
+
             PieModel = CreatePieModel(KpiSummary);
         }
 
@@ -98,7 +138,12 @@ namespace Laser.GUI.ViewModels
             var events = parser.Load(filePath);
 
             Events = events;
-            UpdateKpi(DateTime.Today);
+            LoadLog(DateTime.Today);
+        }
+
+        public void LoadLog(DateTime date)
+        {
+            UpdateKpi(date);
         }
 
         private static PlotModel CreatePieModel(DailySummary summary)
