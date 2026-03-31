@@ -1,4 +1,4 @@
-# Analyzer Responsibility Map（詳細版）
+# Analyzer Responsibility Map（拡張版）
 
 このドキュメントは
 「どのAnalyzerが何をするか」を完全に定義する
@@ -14,6 +14,7 @@ OperationAnalyzer
 OperationInterval[]
  ↓
 LossAnalyzer
+ErrorAnalyzer
 BottleneckAnalyzer
 WeeklyAnalyzer
  ↓
@@ -28,47 +29,17 @@ KpiBuilder
 ## 役割
 ログ → 稼働区間へ変換
 
----
-
 ## 入力
-
 - List<LogEvent>
 
----
-
 ## 出力
-
 - List<OperationInterval>
 
----
-
-## 処理詳細
-
-### 状態遷移
-
-Load → Cutting → End
-
----
-
-### アルゴリズム
-
-1. Load検出 → start
-2. Cutting開始 → 稼働開始
-3. End検出 → 終了
-4. duration算出
-
----
-
-## 重要ポイント
-
-- ログの順序保証
-- 欠損イベント対応
-- 同一Sheet識別
-
----
+## 処理
+- Load → Cutting → End を1サイクルとして認識
+- duration算出
 
 ## NG
-
 - KPI計算
 - ロス分析
 
@@ -77,123 +48,134 @@ Load → Cutting → End
 # 2. LossAnalyzer
 
 ## 役割
-「なぜ止まっているか」を分解する
-
----
+「どこで止まっているか」を可視化する
 
 ## 入力
-
 - List<OperationInterval>
 
----
-
 ## 出力
-
 - LossData
-
----
 
 ## 処理
 
-- 稼働していない区間抽出
-- 前後関係から原因推定
+### ① ロス区間抽出
+- End → 次のLoadまでをロスとする
 
----
+### ② ノイズ除去
+- 短時間（例：5秒以下）は無視
 
-## 分類例
-
+### ③ ロス分類
 - Setup
-- Idle
 - Waiting
+- Idle
 - Error
 
----
+### ④ 集計
+- 総時間
+- 発生回数
 
 ## ポイント
-
-- 連続停止の統合
-- 短時間ノイズ除去
+- ロスは「全体構造」を示す
 
 ---
 
-# 3. BottleneckAnalyzer
+# 3. ErrorAnalyzer（NEW）
 
 ## 役割
-「どこが一番遅いか」を特定する
-
----
+エラーの原因を深掘りする
 
 ## 入力
-
 - List<OperationInterval>
+
+## 出力
+- ErrorData
+
+## 処理
+
+### ① エラー抽出
+- Type == Error の区間
+
+### ② 分類
+- MachineError
+- MaterialError
+- OperatorError
+- Unknown
+
+### ③ 指標
+- 発生回数
+- 総時間
+- 平均復旧時間
+- 最大停止時間
+
+### ④ 再発分析
+- 同一エラーの繰り返し検出
+
+## ポイント
+- 「なぜ止まったか」を明確にする
 
 ---
 
-## 出力
+# 4. BottleneckAnalyzer（重要アップデート）
 
+## 役割
+「どれを改善すべきか」を決定する
+
+## 入力
+- LossData
+
+## 出力
 - List<BottleneckData>
 
 ---
 
+## 🔥 コアロジック（Impactスコア）
+
+### 基本式
+
+Impact = TotalTime × Count
+
+---
+
+### 拡張（将来）
+
+Impact = TotalTime × Count × RecurrenceRate × ImprovementFactor
+
+---
+
 ## 処理
 
-- 停止時間でソート
-- 原因別に集約
-- 上位ランキング作成
+1. LossDataから各カテゴリを取得
+2. Impactスコア計算
+3. 降順ソート
+4. 上位N件抽出
 
 ---
 
 ## 出力イメージ
 
-1位：Setup（120分）  
-2位：Waiting（80分）
+1位：Waiting（Impact 1600）  
+2位：Setup（Impact 120）  
 
 ---
 
-# 4. WeeklyAnalyzer
+## ポイント
 
-## 役割
-「時間軸の流れ」を作る
-
----
-
-## 入力
-
-- List<OperationInterval>
+- ロス分析とは異なり「優先順位」を出す
+- 時間だけで判断しない
 
 ---
 
-## 出力
+# 5. WeeklyAnalyzer
 
-- WeeklyKpi
-
----
-
-## 処理
-
-### 日別分解
-
-- 日ごとにIntervalを分割
+（変更なし）
 
 ---
 
-### 稼働率計算
-
-稼働率 = Cutting時間 / 総時間
-
----
-
-### 出力
-
-- 日付配列
-- 稼働率配列
-
----
-
-# 5. Analyzer間の関係
+# 6. Analyzer間の関係
 
 OperationAnalyzer
  ├─ LossAnalyzer
+ ├─ ErrorAnalyzer
  ├─ BottleneckAnalyzer
  └─ WeeklyAnalyzer
 
@@ -206,28 +188,9 @@ OperationAnalyzer
 
 ---
 
-# 6. KpiBuilderとの関係
+# 7. KpiBuilderとの関係
 
 Analyzer → Builder → GUI
-
----
-
-## 理由
-
-- Analyzerはロジック専用
-- Builderは表示変換専用
-
----
-
-# 7. データ責務の境界
-
-| 項目 | 担当 |
-|------|------|
-| 時間計算 | OperationAnalyzer |
-| ロス分類 | LossAnalyzer |
-| ランキング | BottleneckAnalyzer |
-| 時系列 | WeeklyAnalyzer |
-| 表示整形 | KpiBuilder |
 
 ---
 
@@ -235,24 +198,14 @@ Analyzer → Builder → GUI
 
 この構造は：
 
-「分解 → 分析 → 可視化」
+「分解 → 優先順位 → 原因特定」
 
 ---
 
-# 9. よくある間違い
+# 9. 結論
 
-- Analyzerでグラフ作る
-- GUIで計算する
-- Builderで再計算する
+- LossAnalyzer → 状況把握
+- BottleneckAnalyzer → 意思決定
+- ErrorAnalyzer → 原因解決
 
----
-
-# 10. 結論
-
-Analyzerは
-
-「意味を作る層」
-
-Builderは
-
-「見せ方を作る層」
+👉 この3つで改善サイクルが完成する

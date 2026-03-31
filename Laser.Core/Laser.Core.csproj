@@ -60,6 +60,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Analyzers\BottleneckAnalyzer.cs" />
+    <Compile Include="Analyzers\ErrorAnalyzer.cs" />
     <Compile Include="Analyzers\LossAnalyzer.cs" />
     <Compile Include="Analyzers\OperationAnalyzer.cs" />
     <Compile Include="Analyzers\ScheduleSplitter.cs" />
