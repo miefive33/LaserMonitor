@@ -5,7 +5,6 @@ using Laser.GUI.Views;
 using System;
 using System.IO;
 using System.Linq;
-using System.Reflection.PortableExecutable;
 using System.Windows;
 
 namespace Laser.GUI
@@ -39,27 +38,7 @@ namespace Laser.GUI
                 header.OnUpdateRequested += HandleUpdate;
                 header.OnReloadRequested += HandleReload;
             }
-
-            if (DataContext is MainViewModel vm)
-            {
-                vm.Events = _sqliteService.GetAllLogEvents();
-
-                if (this.FindName("KpiPanel") is KpiPanelView panel)
-                {
-                    panel.SetEvents(vm.Events);
-                }
-
-                vm.PropertyChanged += (s, args) =>
-                {
-                    if (args.PropertyName == "Events")
-                    {
-                        if (this.FindName("KpiPanel") is KpiPanelView p)
-                        {
-                            p.SetEvents(vm.Events);
-                        }
-                    }
-                };
-            }
+            LoadLog(DateTime.Today);
         }
 
         // =========================
@@ -83,13 +62,9 @@ namespace Laser.GUI
 
                 _sqliteService.InsertLogEvents(logs, latest);
 
-                if (DataContext is MainViewModel vm)
-                {
-                    vm.Events = _sqliteService.GetAllLogEvents();
-                    MessageBox.Show($"DB更新完了：{vm.Events.Count}件");
-                }
+                LoadLog(DateTime.Today);
 
-                
+
             }
             catch (Exception ex)
             {
@@ -126,10 +101,7 @@ namespace Laser.GUI
                 _sqliteService.ClearAll();
                 _sqliteService.InsertLogEvents(logs, null);
 
-                if (DataContext is MainViewModel vm)
-                {
-                    vm.Events = logs;
-                }
+                LoadLog(DateTime.Today);
 
                 MessageBox.Show("全再取込が完了しました 👍");
             }
@@ -160,8 +132,6 @@ namespace Laser.GUI
         // =========================
         private void OnDateChanged(DateTime date)
         {
-            MessageBox.Show($"日付変更: {date:yyyy/MM/dd}");
-
             LoadLog(date);
         }
 
@@ -179,10 +149,8 @@ namespace Laser.GUI
                 .Where(e => e.Timestamp.Date == date.Date)
                 .ToList();
 
-            MessageBox.Show($"対象件数: {filtered.Count}");
-
-            // 🔥 ここが重要：ViewModel更新
             vm.Events = filtered;
+            vm.UpdateKpi(date);
         }
     }
 }
