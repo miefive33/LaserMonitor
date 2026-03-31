@@ -17,8 +17,7 @@
                   Height="180"
                   Background="Transparent"/>
                 <TextBlock Text="稼働率 75.8%" Style="{StaticResource ValueText}"/>
-                <TextBlock Text="カット時間 12.5h" Foreground="White"/>
-                <TextBlock Text="ロス時間 5.7h" Foreground="White"/>
+
             </StackPanel>
         </Border>
 

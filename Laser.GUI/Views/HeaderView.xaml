@@ -31,6 +31,12 @@
                 <Button Content="▶" Width="30" Margin="5"
                     Click="NextDate_Click"/>
 
+                <!-- カレンダー -->
+                <DatePicker x:Name="DatePicker"
+                            Width="135"
+                            Margin="10,0,5,0"
+                            SelectedDateChanged="DatePicker_SelectedDateChanged"/>
+
             </StackPanel>
 
             <!-- 右：操作エリア -->

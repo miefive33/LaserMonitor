@@ -45,11 +45,25 @@ namespace Laser.GUI.Views
             UpdateDateDisplay();
         }
 
+        private void DatePicker_SelectedDateChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (DatePicker.SelectedDate.HasValue)
+            {
+                _currentDate = DatePicker.SelectedDate.Value.Date;
+                UpdateDateDisplay();
+            }
+        }
+
         private void UpdateDateDisplay()
         {
             if (DateText != null)
             {
                 DateText.Text = _currentDate.ToString("yyyy年M月d日");
+            }
+
+            if (DatePicker != null)
+            {
+                DatePicker.SelectedDate = _currentDate;
             }
 
             DateChanged?.Invoke(_currentDate);

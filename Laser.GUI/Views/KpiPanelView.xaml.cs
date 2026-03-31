@@ -101,6 +101,8 @@ namespace Laser.GUI.Views
                 AngleSpan = 360,
                 StartAngle = 0,
                 FontSize = 14,
+                InnerDiameter = 0.6,
+
             };
 
             pie.Slices.Add(new PieSlice("Cutting", summary.CuttingTime.TotalSeconds / total * 100)
