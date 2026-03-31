@@ -1,6 +1,7 @@
 ﻿using Laser.Core.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Laser.Core.Builders
@@ -30,6 +31,7 @@ namespace Laser.Core.Builders
                 result.Add($"{type} : {minutes:0.#} min ({count} times)");
             }
 
+            Debug.WriteLine($"[KpiBuilder] loss output: {string.Join(" | ", result)}");
             return result;
         }
 
@@ -48,6 +50,7 @@ namespace Laser.Core.Builders
                 result.Add($"{item.Type} : {item.Count} times / {totalMinutes:0.#} min (avg {avgMinutes:0.#} min)");
             }
 
+            Debug.WriteLine($"[KpiBuilder] error output: {string.Join(" | ", result)}");
             return result;
         }
     }

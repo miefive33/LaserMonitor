@@ -1,31 +1,40 @@
-# Project Tree（最新版）
+# Project Tree
 
 LaserMonitor/
 ├── LaserMonitor.sln
 
 ├── Laser.Core/
 │   ├── Models/
+│   │   ├── DailySummary.cs
+│   │   ├── ErrorData.cs
 │   │   ├── LogEvent.cs
+│   │   ├── LossData.cs
 │   │   ├── OperationInterval.cs
+│   │   ├── OrderInfo.cs
 │   │   ├── SheetInfo.cs
-│   │   └── KpiData.cs
+│   │   └── TimeEfficiencyResult.cs
 │   │
 │   ├── Parsers/
 │   │   └── LogParser.cs
 │   │
 │   ├── Analyzers/
 │   │   ├── OperationAnalyzer.cs
+│   │   ├── ScheduleSplitter.cs
 │   │   ├── LossAnalyzer.cs
+│   │   ├── ErrorAnalyzer.cs
 │   │   ├── BottleneckAnalyzer.cs
-│   │   └── WeeklyAnalyzer.cs
+│   │   ├── SheetAnalyzer.cs
+│   │   └── TimeEfficiencyAnalyzer.cs
 │   │
 │   ├── Builders/
+│   │   ├── DailyReportBuilder.cs
 │   │   └── KpiBuilder.cs
 │   │
 │   ├── Services/
 │   │   └── SqliteService.cs
 │   │
-│   └── Laser.Core.csproj
+│   ├── App.config
+│   └── packages.config
 
 ├── Laser.GUI/
 │   ├── Views/

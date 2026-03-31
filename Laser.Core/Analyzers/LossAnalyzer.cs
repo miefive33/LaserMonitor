@@ -1,6 +1,7 @@
 ﻿using Laser.Core.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Laser.Core.Analyzers
@@ -14,52 +15,35 @@ namespace Laser.Core.Analyzers
             var result = new LossData();
 
             if (intervals == null || intervals.Count == 0)
-                return result;
-
-            var ordered = intervals.OrderBy(i => i.Start).ToList();
-
-            for (int i = 0; i < ordered.Count; i++)
             {
-                var current = ordered[i];
-
-                if (!IsEndType(current.Type))
-                    continue;
-
-                for (int j = i + 1; j < ordered.Count; j++)
-                {
-                    var candidate = ordered[j];
-
-                    if (IsLoadType(candidate.Type))
-                        break;
-
-                    var seconds = candidate.Duration.TotalSeconds;
-                    if (seconds < NoiseThresholdSeconds)
-                        continue;
-
-                    var lossType = ClassifyLoss(candidate.Type);
-                    AddAggregate(result, lossType, seconds);
-                }
+                Debug.WriteLine("[LossAnalyzer] intervals is null or empty.");
+                return result;
             }
 
+            var ordered = intervals.OrderBy(i => i.Start).ToList();
+            Debug.WriteLine($"[LossAnalyzer] input intervals: {ordered.Count}");
+
+            foreach (var interval in ordered)
+            {
+                var seconds = interval.Duration.TotalSeconds;
+                if (seconds < NoiseThresholdSeconds)
+                    continue;
+
+                var lossType = ClassifyLoss(interval.Type);
+                if (lossType == null)
+                    continue;
+
+                AddAggregate(result, lossType, seconds);
+            }
+
+            var totals = result.TotalTime
+                .OrderBy(kv => kv.Key)
+                .Select(kv => $"{kv.Key}={kv.Value:0.##}s");
+
+            Debug.WriteLine($"[LossAnalyzer] total items: {result.Count.Values.Sum()}");
+            Debug.WriteLine($"[LossAnalyzer] values per type: {string.Join(", ", totals)}");
+
             return result;
-        }
-
-        private static bool IsEndType(string type)
-        {
-            return IsType(type, "End");
-        }
-
-        private static bool IsLoadType(string type)
-        {
-            return IsType(type, "Load");
-        }
-
-        private static bool IsType(string value, string keyword)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return false;
-
-            return value.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static string ClassifyLoss(string type)
@@ -67,8 +51,13 @@ namespace Laser.Core.Analyzers
             if (string.IsNullOrWhiteSpace(type))
                 return "Waiting";
 
+            if (type.IndexOf("Cutting", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                type.IndexOf("Sorting", StringComparison.OrdinalIgnoreCase) >= 0)
+                return null;
+
             if (type.IndexOf("Setup", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                type.IndexOf("Load", StringComparison.OrdinalIgnoreCase) >= 0)
+                type.IndexOf("Load", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                type.IndexOf("Handling", StringComparison.OrdinalIgnoreCase) >= 0)
                 return "Setup";
 
             if (type.IndexOf("Error", StringComparison.OrdinalIgnoreCase) >= 0)

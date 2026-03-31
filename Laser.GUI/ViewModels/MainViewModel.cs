@@ -10,6 +10,8 @@ using OxyPlot.Series;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Linq;
 using System.Windows.Input;
 
 namespace Laser.GUI.ViewModels
@@ -102,6 +104,13 @@ namespace Laser.GUI.ViewModels
         {
             var sourceEvents = Events ?? new List<LogEvent>();
             var intervals = _dashboardService.Analyze(sourceEvents);
+
+            var sample = intervals
+                .Take(5)
+                .Select(i => $"{i.Type} {i.Start:HH:mm:ss}-{i.End:HH:mm:ss} ({i.Duration.TotalSeconds:0.#}s)");
+            Debug.WriteLine($"[MainViewModel] OperationInterval count: {intervals.Count}");
+            Debug.WriteLine($"[MainViewModel] OperationInterval sample: {string.Join(" | ", sample)}");
+
             KpiSummary = _dailyReportBuilder.Build(date, intervals);
 
             var lossData = _lossAnalyzer.Analyze(intervals);
@@ -109,6 +118,9 @@ namespace Laser.GUI.ViewModels
 
             LossSummary = _kpiBuilder.BuildLossSummary(lossData);
             ErrorSummary = _kpiBuilder.BuildErrorSummary(errorData);
+
+            Debug.WriteLine($"[MainViewModel] LossSummary count: {LossSummary?.Count ?? 0}");
+            Debug.WriteLine($"[MainViewModel] ErrorSummary count: {ErrorSummary?.Count ?? 0}");
 
             PieModel = CreatePieModel(KpiSummary);
         }

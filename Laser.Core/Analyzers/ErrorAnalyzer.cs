@@ -1,6 +1,7 @@
 ﻿using Laser.Core.Models;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace Laser.Core.Analyzers
@@ -12,14 +13,22 @@ namespace Laser.Core.Analyzers
             var result = new ErrorData();
 
             if (intervals == null || intervals.Count == 0)
+            {
+                Debug.WriteLine("[ErrorAnalyzer] intervals is null or empty.");
                 return result;
+            }
 
             var errorIntervals = intervals
                 .Where(i => IsErrorType(i.Type))
                 .ToList();
 
+            Debug.WriteLine($"[ErrorAnalyzer] total items: {errorIntervals.Count}");
+
             if (errorIntervals.Count == 0)
+            {
+                Debug.WriteLine("[ErrorAnalyzer] error types detected: none");
                 return result;
+            }
 
             var groups = errorIntervals
                 .GroupBy(i => ClassifyError(i.Type))
@@ -43,6 +52,8 @@ namespace Laser.Core.Analyzers
                     MaxDuration = durations.Max()
                 });
             }
+
+            Debug.WriteLine($"[ErrorAnalyzer] error types detected: {string.Join(", ", result.Items.Select(i => i.Type))}");
 
             return result;
         }

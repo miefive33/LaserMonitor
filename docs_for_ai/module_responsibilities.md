@@ -15,9 +15,13 @@
 - LogEvent
 - OperationInterval
 - SheetInfo
+- OrderInfo
+- DailySummary
 - KpiData
 - LossData
+- ErrorData
 - BottleneckData
+- TimeEfficiencyResult
 - WeeklyKpi
 
 ## ルール
@@ -88,32 +92,32 @@
 
 ## 3.1 OperationAnalyzer
 
+（変更なし）
+
+---
+
+## 3.2 ScheduleSplitter（NEW）
+
 ### 目的
-ログから「稼働区間」を生成する
+スケジュール単位でデータを分割する
 
 ### 入力
-- List<LogEvent>
+- List<OperationInterval>
 
 ### 出力
 - List<OperationInterval>
 
 ### 処理
 
-- Load → Cutting → End を1サイクルとして認識
-- 各区間の開始・終了を記録
-- durationを算出
-
-### 補足
-
-- 不正ログはスキップ or 補正
-- End欠損対応が重要
+- 日跨ぎ分割
+- シート単位分割
 
 ---
 
-## 3.2 LossAnalyzer
+## 3.3 LossAnalyzer
 
 ### 目的
-ロス時間を分類する
+ロス時間の構造を可視化する
 
 ### 入力
 - List<OperationInterval>
@@ -121,57 +125,24 @@
 ### 出力
 - LossData
 
-### 分類例
-
-- Idle
-- Setup
-- Waiting
-- Unknown
-
 ### 処理
 
-- 稼働していない時間帯を抽出
-- 種類ごとに集計
+- End → 次のLoadまでをロスとする
+- 短時間ノイズ除去
+- ロス分類（Setup / Waiting / Idle / Error）
+- 合計時間・回数集計
+
+### 役割
+
+👉 「何が起きているか」を把握する
 
 ---
 
-## 3.3 BottleneckAnalyzer
+## 3.4 ErrorAnalyzer
 
 ### 目的
-停止要因ランキングを作る
+エラーの原因を分析する
 
-### 入力
-- List<OperationInterval>
-
-### 出力
-- List<BottleneckData>
-
-### 処理
-
-- LossDataを入力とする
-- Impactスコアでランキング作成
-
----
-
-## 3.4 WeeklyAnalyzer
-
-### 目的
-週間トレンドを生成する
-
-### 入力
-- List<OperationInterval>
-
-### 出力
-- WeeklyKpi
-
-### 処理
-
-- 日単位に分割
-- 稼働率計算
-- 時系列配列生成
-
----
-## 3.5 ErrorAnalyzer
 ### 入力
 - List<OperationInterval>
 
@@ -181,17 +152,74 @@
 ### 処理
 
 - Error区間抽出
-- 原因分類
-- 再発性分析
-- 復旧時間分析
+- エラー分類（Machine / Material / Operator / Unknown）
+- 発生回数・時間・平均・最大を算出
+- 再発検出
 
-### ルール
+### 役割
 
-✔ ロス分析とは分離する  
-✔ エラーに特化する  
+👉 「なぜ止まったか」を特定する
 
-❌ UI用フォーマットを作らない  
-❌ 他Analyzerを呼ばない  
+---
+
+## 3.5 BottleneckAnalyzer
+
+### 目的
+改善優先順位を決定する
+
+### 入力
+- LossData
+
+### 出力
+- List<BottleneckData>
+
+### 処理
+
+- Impactスコア算出
+
+Impact = TotalTime × Count
+
+- 降順ソート
+- 上位抽出
+
+### 役割
+
+👉 「どれを直すべきか」を決定する
+
+---
+
+## 3.6 SheetAnalyzer
+
+（変更なし）
+
+---
+
+## 3.7 TimeEfficiencyAnalyzer（NEW）
+
+### 目的
+時間効率を分析する
+
+### 入力
+- List<OperationInterval>
+
+### 出力
+- TimeEfficiencyResult
+
+### 処理
+
+- Cutting / Setup / Idle の比率算出
+- 稼働率算出
+
+### 役割
+
+👉 「どれだけ効率的か」を評価する
+
+---
+
+## 3.8 WeeklyAnalyzer
+
+（変更なし）
+
 ---
 
 # 4. Builders（UI変換層）
@@ -209,8 +237,10 @@ Analyzerの結果をUI用に整形
 
 - OperationInterval
 - LossData
+- ErrorData
 - BottleneckData
 - WeeklyKpi
+- TimeEfficiencyResult
 
 ---
 
@@ -239,59 +269,19 @@ Analyzerの結果をUI用に整形
 
 # 5. Services（インフラ層）
 
-## 目的
-外部リソース操作
-
-## クラス
-
-### SqliteService
-
----
-
-## 責務
-
-- INSERT
-- SELECT
-
----
-
-## ルール
-
-✔ SQLはここだけ  
-
-❌ Analyzerから直接呼ばない  
-❌ UIから直接SQL書かない  
+（変更なし）
 
 ---
 
 # 6. GUI（表示層）
 
-## 目的
-データを見せる
-
----
-
-## ルール
-
-✔ ViewModel経由で受け取る  
-
-❌ 計算しない  
-❌ ログ解析しない  
+（変更なし）
 
 ---
 
 # 7. CLI（開発用）
 
-## 目的
-ロジック検証
-
----
-
-## 用途
-
-- Parserテスト
-- Analyzerテスト
-- デバッグ出力
+（変更なし）
 
 ---
 
@@ -304,6 +294,20 @@ Analyzerの結果をUI用に整形
 
 👉 この分離を崩すとプロジェクトは壊れる
 
+---
+
+# 9. 分析の全体構造（NEW）
+
+このプロジェクトの分析は以下の4軸で構成される
+
+- LossAnalyzer → 状況把握
+- ErrorAnalyzer → 原因分析
+- BottleneckAnalyzer → 優先順位
+- TimeEfficiencyAnalyzer → 効率評価
+
+👉 この4つで改善ループが完成する
+
+---
 
 ## 🤖 AI RESPONSIBILITY RULES
 

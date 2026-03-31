@@ -5,7 +5,7 @@
 
 ---
 
-# 0. 全体フロー
+# 0. 全体フロー（最新版）
 
 LogEvent[]
  ↓
@@ -13,8 +13,13 @@ OperationAnalyzer
  ↓
 OperationInterval[]
  ↓
+ScheduleSplitter
+ ↓
+分割済OperationInterval[]
+ ↓
 LossAnalyzer
 ErrorAnalyzer
+TimeEfficiencyAnalyzer
 BottleneckAnalyzer
 WeeklyAnalyzer
  ↓
@@ -45,7 +50,33 @@ KpiBuilder
 
 ---
 
-# 2. LossAnalyzer
+# 2. ScheduleSplitter（NEW）
+
+## 役割
+データを分析単位に分割する
+
+## 入力
+- List<OperationInterval>
+
+## 出力
+- List<OperationInterval>
+
+## 処理
+
+### ① 日跨ぎ分割
+- 1つの区間が複数日に跨る場合は分割
+
+### ② シート単位分割
+- 必要に応じてシート単位で分割
+
+## ポイント
+
+- すべてのAnalyzerの前処理
+- データ粒度を揃える役割
+
+---
+
+# 3. LossAnalyzer
 
 ## 役割
 「どこで止まっているか」を可視化する
@@ -79,7 +110,7 @@ KpiBuilder
 
 ---
 
-# 3. ErrorAnalyzer（NEW）
+# 4. ErrorAnalyzer
 
 ## 役割
 エラーの原因を深掘りする
@@ -115,7 +146,34 @@ KpiBuilder
 
 ---
 
-# 4. BottleneckAnalyzer（重要アップデート）
+# 5. TimeEfficiencyAnalyzer（NEW）
+
+## 役割
+稼働効率を評価する
+
+## 入力
+- List<OperationInterval>
+
+## 出力
+- TimeEfficiencyResult
+
+## 処理
+
+### ① 時間分類
+- Cutting
+- Setup
+- Idle
+
+### ② 指標算出
+- 稼働率
+- 各時間割合
+
+## ポイント
+- 「どれだけ効率的か」を測る
+
+---
+
+# 6. BottleneckAnalyzer（重要）
 
 ## 役割
 「どれを改善すべきか」を決定する
@@ -151,13 +209,6 @@ Impact = TotalTime × Count × RecurrenceRate × ImprovementFactor
 
 ---
 
-## 出力イメージ
-
-1位：Waiting（Impact 1600）  
-2位：Setup（Impact 120）  
-
----
-
 ## ポイント
 
 - ロス分析とは異なり「優先順位」を出す
@@ -165,17 +216,34 @@ Impact = TotalTime × Count × RecurrenceRate × ImprovementFactor
 
 ---
 
-# 5. WeeklyAnalyzer
+# 7. WeeklyAnalyzer
 
-（変更なし）
+## 役割
+時系列トレンドを生成する
+
+## 入力
+- List<OperationInterval>
+
+## 出力
+- WeeklyKpi
+
+## 処理
+
+- 日単位に分割
+- 稼働率算出
+- 時系列配列生成
 
 ---
 
-# 6. Analyzer間の関係
+# 8. Analyzer間の関係（更新）
 
 OperationAnalyzer
+ ↓
+ScheduleSplitter
+ ↓
  ├─ LossAnalyzer
  ├─ ErrorAnalyzer
+ ├─ TimeEfficiencyAnalyzer
  ├─ BottleneckAnalyzer
  └─ WeeklyAnalyzer
 
@@ -185,27 +253,29 @@ OperationAnalyzer
 
 - Analyzer同士で直接呼び出さない
 - 循環依存禁止
+- 必ずOperationIntervalを基準にする
 
 ---
 
-# 7. KpiBuilderとの関係
+# 9. KpiBuilderとの関係
 
 Analyzer → Builder → GUI
 
 ---
 
-# 8. 設計思想（重要）
+# 10. 設計思想（重要）
 
 この構造は：
 
-「分解 → 優先順位 → 原因特定」
+「分解 → 可視化 → 優先順位 → 原因特定 → 効率評価」
 
 ---
 
-# 9. 結論
+# 11. 結論（アップデート）
 
 - LossAnalyzer → 状況把握
-- BottleneckAnalyzer → 意思決定
-- ErrorAnalyzer → 原因解決
+- ErrorAnalyzer → 原因分析
+- BottleneckAnalyzer → 優先順位
+- TimeEfficiencyAnalyzer → 効率評価
 
-👉 この3つで改善サイクルが完成する
+👉 この4つで改善サイクルが完成する
