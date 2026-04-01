@@ -62,8 +62,11 @@
     <Compile Include="Analyzers\BottleneckAnalyzer.cs" />
     <Compile Include="Analyzers\ErrorAnalyzer.cs" />
     <Compile Include="Analyzers\LossAnalyzer.cs" />
+    <Compile Include="Analyzers\MachineAnalyzer.cs" />
     <Compile Include="Analyzers\OperationAnalyzer.cs" />
     <Compile Include="Analyzers\ScheduleSplitter.cs" />
+    <Compile Include="Analyzers\SorterAnalyzer.cs" />
+    <Compile Include="Analyzers\SystemAnalyzer.cs" />
     <Compile Include="Analyzers\TimeEfficiencyAnalyzer.cs" />
     <Compile Include="Builders\DailyReportBuilder.cs" />
     <Compile Include="Builders\KpiBuilder.cs" />
@@ -74,6 +77,8 @@
     <Compile Include="Models\OperationInterval.cs" />
     <Compile Include="Models\OrderInfo.cs" />
     <Compile Include="Models\SheetInfo.cs" />
+    <Compile Include="Models\SummaryResult.cs" />
+    <Compile Include="Models\TargetMachine.cs" />
     <Compile Include="Models\TimeEfficiencyResult.cs" />
     <Compile Include="Parsers\LogParser.cs" />
     <Compile Include="Analyzers\SheetAnalyzer.cs" />

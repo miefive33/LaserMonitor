@@ -1,5 +1,4 @@
 ﻿using Laser.Core.Analyzers;
-using Laser.Core.Builders;
 using Laser.Core.Models;
 using Laser.Core.Parsers;
 using Laser.Core.Services;
@@ -10,7 +9,6 @@ using OxyPlot.Series;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Linq;
 using System.Windows.Input;
 
@@ -21,21 +19,27 @@ namespace Laser.GUI.ViewModels
         public ICommand LoadLogCommand { get; }
 
         private readonly DashboardService _dashboardService;
-        private readonly DailyReportBuilder _dailyReportBuilder;
-        private readonly KpiBuilder _kpiBuilder;
-        private readonly LossAnalyzer _lossAnalyzer;
-        private readonly ErrorAnalyzer _errorAnalyzer;
+        private readonly MachineAnalyzer _machineAnalyzer;
+        private readonly SorterAnalyzer _sorterAnalyzer;
+        private readonly SystemAnalyzer _systemAnalyzer;
+
+        // ★ ADDED
+        private DateTime _currentDate;
+        private List<OperationInterval> _currentIntervals;
 
         public MainViewModel()
         {
             LoadLogCommand = new RelayCommand(LoadLog);
             _dashboardService = new DashboardService();
-            _dailyReportBuilder = new DailyReportBuilder();
-            _kpiBuilder = new KpiBuilder();
-            _lossAnalyzer = new LossAnalyzer();
-            _errorAnalyzer = new ErrorAnalyzer();
+            _machineAnalyzer = new MachineAnalyzer();
+            _sorterAnalyzer = new SorterAnalyzer();
+            _systemAnalyzer = new SystemAnalyzer();
+
+            _currentDate = DateTime.Today;
+            _currentIntervals = new List<OperationInterval>();
+
             KpiSummary = new DailySummary { Date = DateTime.Today };
-            PieModel = CreatePieModel(KpiSummary);
+            PieModel = CreatePieModel(new SummaryResult());
             LossSummary = new List<string>();
             ErrorSummary = new List<string>();
         }
@@ -49,6 +53,27 @@ namespace Laser.GUI.ViewModels
             {
                 _events = value;
                 OnPropertyChanged(nameof(Events));
+            }
+        }
+
+        // ★ ADDED
+        public Array AvailableMachines => Enum.GetValues(typeof(TargetMachine));
+
+        // ★ ADDED
+        private TargetMachine _selectedMachine = TargetMachine.Laser;
+
+        // ★ ADDED
+        public TargetMachine SelectedMachine
+        {
+            get => _selectedMachine;
+            set
+            {
+                if (_selectedMachine == value)
+                    return;
+
+                _selectedMachine = value;
+                OnPropertyChanged(nameof(SelectedMachine));
+                RecalculateSelectedSummary();
             }
         }
 
@@ -102,27 +127,66 @@ namespace Laser.GUI.ViewModels
 
         public void UpdateKpi(DateTime date)
         {
+            _currentDate = date;
+
             var sourceEvents = Events ?? new List<LogEvent>();
-            var intervals = _dashboardService.Analyze(sourceEvents);
+            _currentIntervals = _dashboardService.Analyze(sourceEvents);
 
-            var sample = intervals
-                .Take(5)
-                .Select(i => $"{i.Type} {i.Start:HH:mm:ss}-{i.End:HH:mm:ss} ({i.Duration.TotalSeconds:0.#}s)");
-            Debug.WriteLine($"[MainViewModel] OperationInterval count: {intervals.Count}");
-            Debug.WriteLine($"[MainViewModel] OperationInterval sample: {string.Join(" | ", sample)}");
+            RecalculateSelectedSummary();
+        }
 
-            KpiSummary = _dailyReportBuilder.Build(date, intervals);
+        // ★ ADDED
+        private void RecalculateSelectedSummary()
+        {
+            var summary = AnalyzeByTarget(_currentIntervals, SelectedMachine);
 
-            var lossData = _lossAnalyzer.Analyze(intervals);
-            var errorData = _errorAnalyzer.Analyze(intervals);
+            KpiSummary = ToDailySummary(_currentDate, summary);
+            PieModel = CreatePieModel(summary);
 
-            LossSummary = _kpiBuilder.BuildLossSummary(lossData);
-            ErrorSummary = _kpiBuilder.BuildErrorSummary(errorData);
+            LossSummary = summary.Breakdown
+                .OrderByDescending(x => x.Value)
+                .Select(x => $"{x.Key}: {TimeSpan.FromSeconds(x.Value):hh\\:mm\\:ss}")
+                .ToList();
 
-            Debug.WriteLine($"[MainViewModel] LossSummary count: {LossSummary?.Count ?? 0}");
-            Debug.WriteLine($"[MainViewModel] ErrorSummary count: {ErrorSummary?.Count ?? 0}");
+            ErrorSummary = new List<string>
+            {
+                $"Target: {SelectedMachine}",
+                $"ActiveRate: {summary.ActiveRate:0.0}%",
+                $"LossRate: {summary.LossRate:0.0}%"
+            };
+        }
 
-            PieModel = CreatePieModel(KpiSummary);
+        // ★ ADDED
+        private SummaryResult AnalyzeByTarget(List<OperationInterval> intervals, TargetMachine target)
+        {
+            switch (target)
+            {
+                case TargetMachine.Laser:
+                    return _machineAnalyzer.Analyze(intervals);
+
+                case TargetMachine.Sorter:
+                    return _sorterAnalyzer.Analyze(intervals);
+
+                case TargetMachine.System:
+                    return _systemAnalyzer.Analyze(intervals);
+
+                default:
+                    return _machineAnalyzer.Analyze(intervals);
+            }
+        }
+
+        // ★ ADDED
+        private static DailySummary ToDailySummary(DateTime date, SummaryResult summary)
+        {
+            var totalSeconds = summary.Breakdown.Values.Sum();
+
+            return new DailySummary
+            {
+                Date = date,
+                TotalTime = TimeSpan.FromSeconds(totalSeconds),
+                CuttingTime = TimeSpan.FromSeconds(totalSeconds * summary.ActiveRate / 100.0),
+                IdleTime = TimeSpan.FromSeconds(totalSeconds * summary.LossRate / 100.0)
+            };
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -158,7 +222,8 @@ namespace Laser.GUI.ViewModels
             UpdateKpi(date);
         }
 
-        private static PlotModel CreatePieModel(DailySummary summary)
+        // ★ MODIFIED
+        private static PlotModel CreatePieModel(SummaryResult summary)
         {
             var model = new PlotModel
             {
@@ -169,8 +234,9 @@ namespace Laser.GUI.ViewModels
                 TitleColor = OxyColors.White
             };
 
-            double total = summary.TotalTime.TotalSeconds;
-            if (total == 0) total = 1;
+            var total = summary.Breakdown.Values.Sum();
+            if (total <= 0)
+                return model;
 
             var pie = new PieSeries
             {
@@ -183,17 +249,10 @@ namespace Laser.GUI.ViewModels
                 InnerDiameter = 0.6,
             };
 
-            pie.Slices.Add(new PieSlice("Cutting", summary.CuttingTime.TotalSeconds / total * 100)
-            { Fill = OxyColor.FromRgb(0, 200, 0) });
-
-            pie.Slices.Add(new PieSlice("Setup", summary.SetupTime.TotalSeconds / total * 100)
-            { Fill = OxyColor.FromRgb(150, 0, 200) });
-
-            pie.Slices.Add(new PieSlice("Idle", summary.IdleTime.TotalSeconds / total * 100)
-            { Fill = OxyColors.Gray });
-
-            pie.Slices.Add(new PieSlice("Error", summary.ErrorTime.TotalSeconds / total * 100)
-            { Fill = OxyColors.Red });
+            foreach (var item in summary.Breakdown.OrderByDescending(x => x.Value))
+            {
+                pie.Slices.Add(new PieSlice(item.Key, item.Value / total * 100));
+            }
 
             model.Series.Add(pie);
             return model;
