@@ -8,6 +8,7 @@ using OxyPlot;
 using OxyPlot.Series;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows.Input;
@@ -17,19 +18,27 @@ namespace Laser.GUI.ViewModels
     public class MainViewModel : INotifyPropertyChanged
     {
         public ICommand LoadLogCommand { get; }
+        public ICommand SelectMachineCommand { get; }
 
         private readonly DashboardService _dashboardService;
         private readonly MachineAnalyzer _machineAnalyzer;
         private readonly SorterAnalyzer _sorterAnalyzer;
         private readonly SystemAnalyzer _systemAnalyzer;
 
-        // ★ ADDED
         private DateTime _currentDate;
         private List<OperationInterval> _currentIntervals;
 
         public MainViewModel()
         {
             LoadLogCommand = new RelayCommand(LoadLog);
+            SelectMachineCommand = new ParameterRelayCommand(param =>
+            {
+                if (param is Machine machine)
+                {
+                    SelectedMachine = machine;
+                }
+            });
+
             _dashboardService = new DashboardService();
             _machineAnalyzer = new MachineAnalyzer();
             _sorterAnalyzer = new SorterAnalyzer();
@@ -37,6 +46,15 @@ namespace Laser.GUI.ViewModels
 
             _currentDate = DateTime.Today;
             _currentIntervals = new List<OperationInterval>();
+
+            Machines = new ObservableCollection<Machine>
+            {
+                new Machine { Id = "laser", Name = "Laser", Color = "#FF6F00", Order = 1 },
+                new Machine { Id = "sorting", Name = "Sorting", Color = "#00ACC1", Order = 2 },
+                new Machine { Id = "system", Name = "System", Color = "#8E24AA", Order = 3 }
+            };
+
+            SelectedMachine = Machines.OrderBy(x => x.Order).FirstOrDefault();
 
             KpiSummary = new DailySummary { Date = DateTime.Today };
             PieModel = CreatePieModel(new SummaryResult());
@@ -56,14 +74,11 @@ namespace Laser.GUI.ViewModels
             }
         }
 
-        // ★ ADDED
-        public Array AvailableMachines => Enum.GetValues(typeof(TargetMachine));
+        public ObservableCollection<Machine> Machines { get; }
 
-        // ★ ADDED
-        private TargetMachine _selectedMachine = TargetMachine.Laser;
+        private Machine _selectedMachine;
 
-        // ★ ADDED
-        public TargetMachine SelectedMachine
+        public Machine SelectedMachine
         {
             get => _selectedMachine;
             set
@@ -73,7 +88,7 @@ namespace Laser.GUI.ViewModels
 
                 _selectedMachine = value;
                 OnPropertyChanged(nameof(SelectedMachine));
-                RecalculateSelectedSummary();
+                LoadLog(_currentDate);
             }
         }
 
@@ -135,7 +150,6 @@ namespace Laser.GUI.ViewModels
             RecalculateSelectedSummary();
         }
 
-        // ★ ADDED
         private void RecalculateSelectedSummary()
         {
             var summary = AnalyzeByTarget(_currentIntervals, SelectedMachine);
@@ -150,24 +164,23 @@ namespace Laser.GUI.ViewModels
 
             ErrorSummary = new List<string>
             {
-                $"Target: {SelectedMachine}",
+                $"Target: {SelectedMachine?.Name}",
                 $"ActiveRate: {summary.ActiveRate:0.0}%",
                 $"LossRate: {summary.LossRate:0.0}%"
             };
         }
 
-        // ★ ADDED
-        private SummaryResult AnalyzeByTarget(List<OperationInterval> intervals, TargetMachine target)
+        private SummaryResult AnalyzeByTarget(List<OperationInterval> intervals, Machine machine)
         {
-            switch (target)
+            switch (machine?.Id)
             {
-                case TargetMachine.Laser:
+                case "laser":
                     return _machineAnalyzer.Analyze(intervals);
 
-                case TargetMachine.Sorter:
+                case "sorting":
                     return _sorterAnalyzer.Analyze(intervals);
 
-                case TargetMachine.System:
+                case "system":
                     return _systemAnalyzer.Analyze(intervals);
 
                 default:
@@ -175,7 +188,6 @@ namespace Laser.GUI.ViewModels
             }
         }
 
-        // ★ ADDED
         private static DailySummary ToDailySummary(DateTime date, SummaryResult summary)
         {
             var totalSeconds = summary.Breakdown.Values.Sum();
@@ -222,7 +234,6 @@ namespace Laser.GUI.ViewModels
             UpdateKpi(date);
         }
 
-        // ★ MODIFIED
         private static PlotModel CreatePieModel(SummaryResult summary)
         {
             var model = new PlotModel
@@ -256,6 +267,28 @@ namespace Laser.GUI.ViewModels
 
             model.Series.Add(pie);
             return model;
+        }
+
+        private class ParameterRelayCommand : ICommand
+        {
+            private readonly Action<object> _execute;
+
+            public ParameterRelayCommand(Action<object> execute)
+            {
+                _execute = execute;
+            }
+
+            public event EventHandler CanExecuteChanged;
+
+            public bool CanExecute(object parameter)
+            {
+                return true;
+            }
+
+            public void Execute(object parameter)
+            {
+                _execute(parameter);
+            }
         }
     }
 }

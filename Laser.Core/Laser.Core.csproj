@@ -74,6 +74,7 @@
     <Compile Include="Models\ErrorData.cs" />
     <Compile Include="Models\LogEvent.cs" />
     <Compile Include="Models\LossData.cs" />
+    <Compile Include="Models\Machine.cs" />
     <Compile Include="Models\OperationInterval.cs" />
     <Compile Include="Models\OrderInfo.cs" />
     <Compile Include="Models\SheetInfo.cs" />
