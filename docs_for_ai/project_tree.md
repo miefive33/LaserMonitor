@@ -9,21 +9,27 @@ LaserMonitor/
 │   │   ├── ErrorData.cs
 │   │   ├── LogEvent.cs
 │   │   ├── LossData.cs
+│   │   ├── Machine.cs
 │   │   ├── OperationInterval.cs
 │   │   ├── OrderInfo.cs
 │   │   ├── SheetInfo.cs
+│   │   ├── SummaryResult.cs
+│   │   ├── TargetMachines.cs
 │   │   └── TimeEfficiencyResult.cs
 │   │
 │   ├── Parsers/
 │   │   └── LogParser.cs
 │   │
 │   ├── Analyzers/
+│   │   ├── BottleneckAnalyzer.cs
+│   │   ├── ErrorAnalyzer.cs
+│   │   ├── LossAnalyzer.cs
+│   │   ├── MachineAnalyzer.cs
 │   │   ├── OperationAnalyzer.cs
 │   │   ├── ScheduleSplitter.cs
-│   │   ├── LossAnalyzer.cs
-│   │   ├── ErrorAnalyzer.cs
-│   │   ├── BottleneckAnalyzer.cs
 │   │   ├── SheetAnalyzer.cs
+│   │   ├── SorterAnalyzer.cs
+│   │   ├── SystemAnalyzer.cs
 │   │   └── TimeEfficiencyAnalyzer.cs
 │   │
 │   ├── Builders/
@@ -31,30 +37,45 @@ LaserMonitor/
 │   │   └── KpiBuilder.cs
 │   │
 │   ├── Services/
+│   │   ├── DashboardService.cs
 │   │   └── SqliteService.cs
 │   │
-│   ├── App.config
-│   └── packages.config
+│   └── Laser.Core.csproj
 
 ├── Laser.GUI/
-│   ├── Views/
-│   │   ├── MainWindow.xaml
-│   │   ├── HeaderView.xaml
-│   │   ├── TimelineView.xaml
-│   │   └── BottomPanelView.xaml
+│   ├── Command/
+│   │   └── RelayCommand.cs
+│   │
+│   ├── Converters/
+│   │   └── ReferenceEqualsMultiConverter.cs
+│   │
+│   ├── Dashboard/
+│   │   └── （今後拡張）
+│   │
+│   ├── Styles/
+│   │   ├── CardStyles.xaml
+│   │   └── Colors.xaml
 │   │
 │   ├── ViewModels/
 │   │   └── MainViewModel.cs
 │   │
-│   └── Laser.GUI.csproj
+│   ├── Views/
+│   │   ├── BottomPanelView.xaml
+│   │   ├── HeaderView.xaml
+│   │   ├── KpiPanelView.xaml
+│   │   └── TimelineView.xaml
+│   │
+│   ├── App.xaml
+│   ├── AssemblyInfo.cs
+│   └── MainWindow.xaml
 
 ├── Laser.CLI/
-│   ├── Program.cs
-│   └── Laser.CLI.csproj
+│   └── （省略）
 
 └── Docs/
     ├── architecture.md
     ├── module_responsibilities.md
     ├── analyzer_responsibility_map.md
     ├── sqlite_design.md
-    └── ui_design_constraints.md
+    ├── ui_design_constraints.md
+    └── AGENTS.md

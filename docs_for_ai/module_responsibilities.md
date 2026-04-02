@@ -1,364 +1,204 @@
-# Module Responsibilities（詳細版）
+# Module Responsibilities
 
 このドキュメントは
-「どこに何を書くか迷わない」ための絶対ルールである
+「どこに何を書くか迷わない」ための絶対ルール
 
 ---
 
 # 1. Models（データ定義専用）
 
-## 目的
-すべてのデータ構造を定義する
-
-## 対象クラス
+## 対象
 
 - LogEvent
 - OperationInterval
 - SheetInfo
 - OrderInfo
+- Machine
 - DailySummary
-- KpiData
+- SummaryResult
 - LossData
 - ErrorData
-- BottleneckData
 - TimeEfficiencyResult
-- WeeklyKpi
+- TargetMachines
 
 ## ルール
 
-✔ プロパティのみ持つ  
-✔ DTOとして扱う  
-✔ シリアライズ可能  
+✔ プロパティのみ  
+✔ DTO  
 
-❌ 計算処理を書かない  
-❌ DBアクセスしない  
-❌ 他クラス呼び出し禁止  
+❌ ロジック禁止  
+❌ DB禁止  
 
 ---
 
-# 2. Parsers（入力変換層）
+# 2. Parsers
 
-## 目的
-ログファイルを「構造化データ」に変換する
+## LogParser
 
-## クラス
+入力：
+- raw log
 
-### LogParser
-
-## 入力
-- raw log text
-
-## 出力
+出力：
 - List<LogEvent>
 
-## 責務
-
-- 日付フォーマット変換（Day/Month/Year対応）
-- ログ種別判定
-  - Load
-  - Cutting
-  - End
-- 行ごとのイベント生成
-
-## ルール
-
-✔ 1行 → 1イベント  
-✔ 状態はenum化  
-
-❌ 時間計算しない  
-❌ シート概念を持たない  
-❌ KPIを作らない  
+責務：
+- 日付変換
+- イベント分類
 
 ---
 
-# 3. Analyzers（ロジック層 / 最重要）
-
-## 目的
-すべてのビジネスロジックをここに集約する
-
----
+# 3. Analyzers（最重要）
 
 ## 共通ルール
 
-✔ 入力は必ずModel  
-✔ 出力もModel  
-✔ 純粋関数に近づける  
+✔ Model → Model  
+✔ 純粋ロジック  
 
-❌ UIを触らない  
-❌ DBを触らない  
-❌ Console出力しない  
+❌ UI禁止  
+❌ DB禁止  
 
 ---
 
-## 3.1 OperationAnalyzer
+## 分析レイヤ構造（超重要）
 
-（変更なし）
-
----
-
-## 3.2 ScheduleSplitter（NEW）
-
-### 目的
-スケジュール単位でデータを分割する
-
-### 入力
-- List<OperationInterval>
-
-### 出力
-- List<OperationInterval>
-
-### 処理
-
-- 日跨ぎ分割
-- シート単位分割
+OperationAnalyzer
+↓
+ScheduleSplitter
+↓
+機能別Analyzer
 
 ---
 
-## 3.3 LossAnalyzer
+## Analyzer一覧（最新版）
 
-### 目的
-ロス時間の構造を可視化する
-
-### 入力
-- List<OperationInterval>
-
-### 出力
-- LossData
-
-### 処理
-
-- End → 次のLoadまでをロスとする
-- 短時間ノイズ除去
-- ロス分類（Setup / Waiting / Idle / Error）
-- 合計時間・回数集計
-
-### 役割
-
-👉 「何が起きているか」を把握する
+### ■ OperationAnalyzer
+ログ → 稼働区間
 
 ---
 
-## 3.4 ErrorAnalyzer
-
-### 目的
-エラーの原因を分析する
-
-### 入力
-- List<OperationInterval>
-
-### 出力
-- ErrorData
-
-### 処理
-
-- Error区間抽出
-- エラー分類（Machine / Material / Operator / Unknown）
-- 発生回数・時間・平均・最大を算出
-- 再発検出
-
-### 役割
-
-👉 「なぜ止まったか」を特定する
+### ■ ScheduleSplitter
+日跨ぎ・単位分割
 
 ---
 
-## 3.5 BottleneckAnalyzer
-
-### 目的
-改善優先順位を決定する
-
-### 入力
-- LossData
-
-### 出力
-- List<BottleneckData>
-
-### 処理
-
-- Impactスコア算出
-
-Impact = TotalTime × Count
-
-- 降順ソート
-- 上位抽出
-
-### 役割
-
-👉 「どれを直すべきか」を決定する
+### ■ LossAnalyzer
+ロス構造分析
 
 ---
 
-## 3.6 SheetAnalyzer
-
-（変更なし）
-
----
-
-## 3.7 TimeEfficiencyAnalyzer（NEW）
-
-### 目的
-時間効率を分析する
-
-### 入力
-- List<OperationInterval>
-
-### 出力
-- TimeEfficiencyResult
-
-### 処理
-
-- Cutting / Setup / Idle の比率算出
-- 稼働率算出
-
-### 役割
-
-👉 「どれだけ効率的か」を評価する
+### ■ ErrorAnalyzer
+エラー原因分析
 
 ---
 
-## 3.8 WeeklyAnalyzer
-
-（変更なし）
-
----
-
-# 4. Builders（UI変換層）
-
-## 目的
-Analyzerの結果をUI用に整形
-
-## クラス
-
-### KpiBuilder
+### ■ TimeEfficiencyAnalyzer
+稼働効率
 
 ---
 
-## 入力
-
-- OperationInterval
-- LossData
-- ErrorData
-- BottleneckData
-- WeeklyKpi
-- TimeEfficiencyResult
+### ■ BottleneckAnalyzer
+改善優先順位
 
 ---
 
-## 出力
+### ■ MachineAnalyzer（NEW）
+加工機単位の分析
 
-- KpiData（UI専用）
+👉 CUT / WAIT / INTERRUPT を分類
 
 ---
 
-## 処理
+### ■ SorterAnalyzer（NEW）
+仕分け機分析
 
-- 円グラフデータ作成
-- 棒グラフデータ作成
-- 表示用テキスト生成
+👉 SORT動作の時間分析
+
+---
+
+### ■ SystemAnalyzer（NEW）
+システム全体分析
+
+👉 機械以外の停止要因
+
+---
+
+### ■ SheetAnalyzer
+シート単位分析
+
+---
+
+---
+
+# 4. Builders
+
+## KpiBuilder
+
+入力：
+- Analyzer結果
+
+出力：
+- UI表示用データ
+
+❌ 再計算禁止
+
+---
+
+# 5. Services
+
+## SqliteService
+
+✔ DB操作のみ  
+
+---
+
+## DashboardService（NEW）
+
+✔ Analyzer呼び出し統括  
+✔ GUIへのデータ供給
+
+❌ ロジック実装しない
+
+👉 “オーケストレーター”
+
+---
+
+# 6. GUI
+
+## View
+
+- HeaderView
+- KpiPanelView
+- TimelineView
+- BottomPanelView
+
+---
+
+## ViewModel
+
+- MainViewModel
 
 ---
 
 ## ルール
 
-✔ 表示形式に変換するだけ  
+✔ 表示のみ  
+✔ コマンド発火  
 
-❌ 再計算しない  
-❌ ロジックを書かない  
-
----
-
-# 5. Services（インフラ層）
-
-（変更なし）
+❌ 計算禁止  
 
 ---
 
-# 6. GUI（表示層）
+# 7. CLI
 
-（変更なし）
-
----
-
-# 7. CLI（開発用）
-
-（変更なし）
+テスト専用
 
 ---
 
-# 8. 最重要ルールまとめ
+# 8. 最重要ルール
 
-1. ロジックはAnalyzerのみ  
-2. 表示はGUIのみ  
-3. DBはServiceのみ  
-4. 変換はBuilderのみ  
+Analyzer = 頭脳  
+Builder = 翻訳  
+Service = 指揮  
+GUI = 表示  
 
-👉 この分離を崩すとプロジェクトは壊れる
-
----
-
-# 9. 分析の全体構造（NEW）
-
-このプロジェクトの分析は以下の4軸で構成される
-
-- LossAnalyzer → 状況把握
-- ErrorAnalyzer → 原因分析
-- BottleneckAnalyzer → 優先順位
-- TimeEfficiencyAnalyzer → 効率評価
-
-👉 この4つで改善ループが完成する
-
----
-
-## 🤖 AI RESPONSIBILITY RULES
-
-### GUI
-
-CAN:
-
-* display data
-* trigger events
-
-CANNOT:
-
-* calculate
-* analyze
-* access DB
-
----
-
-### Analyzer
-
-CAN:
-
-* calculate KPI
-* analyze data
-
-CANNOT:
-
-* access UI
-* format UI data
-
----
-
-### Builder
-
-CAN:
-
-* format for UI
-
-CANNOT:
-
-* recalculate KPI
-
----
-
-### SqliteService
-
-CAN:
-
-* SELECT
-* INSERT
-
-CANNOT:
-
-* analyze data
+👉 役割を混ぜた瞬間に崩壊する

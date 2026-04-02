@@ -1,4 +1,4 @@
-# 🤖 AGENTS.md
+# 🤖 AGENTS.md（完全版 / LaserMonitor）
 
 ## AI Development Rules for LaserMonitor
 
@@ -25,15 +25,21 @@ If conflicts occur:
 
 ---
 
-# 🧱 Architecture Rules
+# 🧱 Architecture Rules（最重要）
 
-## Allowed Flow (STRICT)
+## Allowed Flow（STRICT）
 
-Log → Parser → Analyzer → Builder → SQLite → GUI
+Log
+→ Parser
+→ Analyzer
+→ Builder
+→ Service
+→ SQLite
+→ GUI
 
 ---
 
-## ❌ Forbidden Actions
+## ❌ Forbidden Actions（絶対禁止）
 
 AI MUST NOT:
 
@@ -41,7 +47,7 @@ AI MUST NOT:
 * call Analyzer from GUI
 * access SQLite directly from GUI
 * perform calculations in GUI
-* introduce new layers (Service, Manager, etc.)
+* introduce new architecture layers
 * refactor unrelated code
 
 ---
@@ -51,9 +57,9 @@ AI MUST NOT:
 AI CAN:
 
 * call existing methods
-* add UI components within constraints
 * extend ViewModel safely
 * add event handling
+* update UI content within constraints
 
 ---
 
@@ -87,6 +93,8 @@ GUI is ONLY for:
 
 # 📊 Analyzer Rules
 
+## Responsibilities
+
 Analyzer is responsible for:
 
 * KPI calculation
@@ -99,10 +107,13 @@ Analyzer is responsible for:
 
 * access UI
 * format UI output
+* access database
 
 ---
 
 # 🧩 Builder Rules
+
+## Responsibilities
 
 Builder is responsible for:
 
@@ -114,15 +125,51 @@ Builder is responsible for:
 
 * calculate KPI
 * access database
+* implement business logic
+
+---
+
+# 🧠 Service Rules（NEW / 重要）
+
+## Responsibilities
+
+Service is responsible for:
+
+* orchestrating analyzers
+* controlling data flow
+* providing data to ViewModel
+
+---
+
+## ❌ Service MUST NOT
+
+* implement analysis logic
+* format UI data
+* directly manipulate UI
+
+---
+
+## 🔥 DashboardService（重要）
+
+Acts as:
+
+👉 Orchestrator between Analyzer and GUI
+
+Responsibilities:
+
+* call multiple analyzers
+* aggregate results
+* pass data to ViewModel
 
 ---
 
 # 💾 Database Rules
 
-SQLiteService is responsible for:
+## SqliteService Responsibilities
 
 * SELECT
 * INSERT
+* DELETE（rebuild only）
 
 ---
 
@@ -130,10 +177,11 @@ SQLiteService is responsible for:
 
 * perform analysis
 * contain business logic
+* interact with UI
 
 ---
 
-# 🎨 UI Layout Constraints
+# 🎨 UI Layout Constraints（絶対固定）
 
 AI MUST follow:
 
@@ -145,7 +193,8 @@ AI MUST follow:
 
 ## ✔ Allowed
 
-* Add controls inside existing views (e.g. HeaderView)
+* add controls inside HeaderView
+* update content inside existing panels
 
 ---
 
@@ -186,8 +235,50 @@ If requirements are unclear:
 
 ---
 
+# 🧠 System Design Concept（重要）
+
+This system is based on:
+
+👉 「設備 × 原因 × 時間 × 優先度」
+
+---
+
+## Analysis Layers
+
+### ① What happened（現象）
+
+* LossAnalyzer
+* TimeEfficiencyAnalyzer
+
+---
+
+### ② Why happened（原因）
+
+* ErrorAnalyzer
+* SystemAnalyzer
+
+---
+
+### ③ Where happened（対象）
+
+* MachineAnalyzer
+* SorterAnalyzer
+* SheetAnalyzer
+
+---
+
+### ④ What to fix（優先度）
+
+* BottleneckAnalyzer
+
+---
+
+👉 These layers must remain independent
+
+---
+
 # 🚀 Summary
 
 AI should behave like:
 
-"A careful engineer who follows strict architecture rules and avoids unnecessary changes."
+"A careful engineer who respects architecture, avoids unnecessary changes, and builds only what is required."
