@@ -15,7 +15,6 @@ namespace Laser.Core.Analyzers
                 return result;
 
             var ordered = events.OrderBy(e => e.Timestamp).ToList();
-
             var state = new MachineState();
 
             for (int i = 0; i < ordered.Count - 1; i++)
@@ -23,17 +22,28 @@ namespace Laser.Core.Analyzers
                 var current = ordered[i];
                 var next = ordered[i + 1];
 
-                // 状態更新（イベントを食わせる）
+                if (next.Timestamp <= current.Timestamp)
+                    continue;
+
                 state.Update(current);
+                var currentType = state.GetCurrentOperation();
 
-                // 現在状態取得（優先順位付き）
-                var type = state.GetCurrentOperation();
-
+                // ★ ADDED: ScheduleActive interval（分母）
                 result.Add(new OperationInterval
                 {
                     Start = current.Timestamp,
                     End = next.Timestamp,
-                    Type = type.ToString()
+                    OperationType = OperationType.ScheduleActive,
+                    Type = OperationType.ScheduleActive.ToString()
+                });
+
+                // ★ CHANGED: detailed interval（Running / Loss）
+                result.Add(new OperationInterval
+                {
+                    Start = current.Timestamp,
+                    End = next.Timestamp,
+                    OperationType = currentType,
+                    Type = currentType.ToString()
                 });
             }
 
@@ -46,74 +56,56 @@ namespace Laser.Core.Analyzers
     /// </summary>
     public class MachineState
     {
-        private Dictionary<OperationType, bool> flags = new Dictionary<OperationType, bool>()
-        {
-            { OperationType.Cutting, false },
-            { OperationType.Sorting, false },
-            { OperationType.Setup, false },
-            { OperationType.Error, false }
-        };
+        private bool _isRunning;
+        private bool _isSetup;
+        private bool _isError;
 
-        // 優先順位（上にあるほど強い）
-        private readonly List<OperationType> priority = new List<OperationType>
-        {
-            OperationType.Error,
-            OperationType.Cutting,
-            OperationType.Sorting,
-            OperationType.Setup,
-            OperationType.Idle
-        };
+        // ★ ADDED: 待ち状態は最後のイベントヒントを保持
+        private OperationType _passiveHint = OperationType.Unknown;
 
         public void Update(LogEvent e)
         {
-            var msg = e.Message ?? "";
+            var msg = e?.Message ?? string.Empty;
 
-            // =========================
-            // Cutting
-            // =========================
-            UpdateState(msg,
-                "Cutting started",
-                "Cutting completed",
-                OperationType.Cutting);
+            // ★ CHANGED: Running（加工中）
+            if (ContainsAny(msg, "Cutting started", "Sorting started"))
+                _isRunning = true;
 
-            // =========================
-            // Sorting（今回追加）
-            // =========================
-            UpdateState(msg,
-                "Sorting started",
-                "Sorting completed",
-                OperationType.Sorting);
+            if (ContainsAny(msg, "Cutting completed", "Sorting completed"))
+                _isRunning = false;
 
-            // =========================
-            // Setup / Load
-            // =========================
+            // Setup
             if (e.IsLoad || e.IsSetup)
-                flags[OperationType.Setup] = true;
+                _isSetup = true;
 
-            if (msg.Contains("Load/Unload Completed") ||
-                msg.Contains("Unload/Load Completed"))
-                flags[OperationType.Setup] = false;
+            if (ContainsAny(msg, "Load/Unload Completed", "Unload/Load Completed"))
+                _isSetup = false;
 
-            // =========================
             // Error
-            // =========================
             if (e.IsError)
-                flags[OperationType.Error] = true;
+                _isError = true;
 
-            if (msg.Contains("Error cleared"))
-                flags[OperationType.Error] = false;
-        }
+            if (msg.IndexOf("Error cleared", StringComparison.OrdinalIgnoreCase) >= 0)
+                _isError = false;
 
-        /// <summary>
-        /// Start/End型イベントを共通処理
-        /// </summary>
-        private void UpdateState(string msg, string startKey, string endKey, OperationType type)
-        {
-            if (msg.Contains(startKey))
-                flags[type] = true;
+            // ★ ADDED: active state優先時は待ちヒントを解除
+            if (_isError || _isRunning || _isSetup)
+            {
+                _passiveHint = OperationType.Unknown;
+                return;
+            }
 
-            if (msg.Contains(endKey))
-                flags[type] = false;
+            // ★ CHANGED: waiting / interrupt hint
+            if (msg.IndexOf("Upstream", StringComparison.OrdinalIgnoreCase) >= 0)
+                _passiveHint = OperationType.WaitingUpstream;
+            else if (msg.IndexOf("Downstream", StringComparison.OrdinalIgnoreCase) >= 0)
+                _passiveHint = OperationType.WaitingDownstream;
+            else if (ContainsAny(msg, "2PC", "3PC", "Interrupt"))
+                _passiveHint = OperationType.SystemInterrupt;
+            else if (msg.IndexOf("Wait", StringComparison.OrdinalIgnoreCase) >= 0)
+                _passiveHint = OperationType.WaitingDownstream;
+            else
+                _passiveHint = OperationType.Unknown;
         }
 
         /// <summary>
@@ -121,29 +113,31 @@ namespace Laser.Core.Analyzers
         /// </summary>
         public OperationType GetCurrentOperation()
         {
-            foreach (var type in priority)
-            {
-                if (type == OperationType.Idle)
-                    continue;
+            if (_isError)
+                return OperationType.Error;
 
-                if (flags.ContainsKey(type) && flags[type])
-                    return type;
+            if (_isRunning)
+                return OperationType.Running;
+
+            if (_isSetup)
+                return OperationType.Setup;
+
+            if (_passiveHint != OperationType.Unknown)
+                return _passiveHint;
+
+            return OperationType.Unknown;
+        }
+
+        // ★ ADDED
+        private static bool ContainsAny(string source, params string[] keywords)
+        {
+            foreach (var keyword in keywords)
+            {
+                if (source.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
             }
 
-            return OperationType.Idle;
+            return false;
         }
-    }
-
-    /// <summary>
-    /// 稼働状態の種類
-    /// </summary>
-    public enum OperationType
-    {
-        Cutting,
-        Setup,
-        Load,
-        Sorting,
-        Error,
-        Idle
     }
 }

@@ -15,7 +15,15 @@ namespace Laser.Core.Builders
             if (lossData == null)
                 return result;
 
-            var order = new[] { "Setup", "Waiting", "Idle", "Error" };
+            var order = new[]
+            {
+                "Setup",
+                "WaitingUpstream",
+                "WaitingDownstream",
+                "SystemInterrupt",
+                "Error",
+                "Unknown"
+            };
 
             foreach (var type in order)
             {
@@ -32,6 +40,23 @@ namespace Laser.Core.Builders
             }
 
             Debug.WriteLine($"[KpiBuilder] loss output: {string.Join(" | ", result)}");
+            return result;
+        }
+        public List<string> BuildKpiSummary(DailySummary weeklyKpi, LossData lossData)
+        {
+            var result = new List<string>();
+
+            if (weeklyKpi == null)
+                return result;
+
+            result.Add($"OperationRate : {weeklyKpi.OperationRate:0.0}%");
+            result.Add($"RunningTime : {weeklyKpi.RunningTime:hh\\:mm\\:ss}");
+            result.Add($"LossTime : {weeklyKpi.LossTime:hh\\:mm\\:ss}");
+            result.Add($"ScheduleActiveTime : {weeklyKpi.ScheduleActiveTime:hh\\:mm\\:ss}");
+
+            if (lossData != null)
+                result.AddRange(BuildLossSummary(lossData));
+
             return result;
         }
 

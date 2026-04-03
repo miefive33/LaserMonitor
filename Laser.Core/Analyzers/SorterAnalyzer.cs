@@ -10,8 +10,11 @@ namespace Laser.Core.Analyzers
         public SummaryResult Analyze(List<OperationInterval> intervals)
         {
             var result = new SummaryResult();
-            var source = intervals ?? new List<OperationInterval>();
+            var source = (intervals ?? new List<OperationInterval>())
+                 .Where(i => !i.IsScheduleActive)
+                 .ToList();
             double total = source.Sum(i => Math.Max(0, i.Duration.TotalSeconds));
+            // ★ CHANGED: ignore ScheduleActive wrapper intervals
             if (total <= 0)
                 return result;
 

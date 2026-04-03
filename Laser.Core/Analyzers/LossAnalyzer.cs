@@ -20,20 +20,25 @@ namespace Laser.Core.Analyzers
                 return result;
             }
 
-            var ordered = intervals.OrderBy(i => i.Start).ToList();
-            Debug.WriteLine($"[LossAnalyzer] input intervals: {ordered.Count}");
+            var ordered = intervals
+                .Where(i => i != null && i.End > i.Start)
+                .OrderBy(i => i.Start)
+                .ToList();
 
-            foreach (var interval in ordered)
+            // ★ CHANGED: ScheduleActive内の非Runningのみを対象
+            var scheduleActive = ordered.Where(i => i.IsScheduleActive).ToList();
+            var candidateLosses = ordered
+                .Where(i => !i.IsScheduleActive && !i.IsRunning)
+                .ToList();
+
+            foreach (var interval in candidateLosses)
             {
-                var seconds = interval.Duration.TotalSeconds;
-                if (seconds < NoiseThresholdSeconds)
+                var inScheduleSeconds = GetOverlappedSeconds(interval, scheduleActive);
+                if (inScheduleSeconds < NoiseThresholdSeconds)
                     continue;
 
-                var lossType = ClassifyLoss(interval.Type);
-                if (lossType == null)
-                    continue;
-
-                AddAggregate(result, lossType, seconds);
+                var lossType = ClassifyLoss(interval.OperationType);
+                AddAggregate(result, lossType, inScheduleSeconds);
             }
 
             var totals = result.TotalTime
@@ -46,27 +51,40 @@ namespace Laser.Core.Analyzers
             return result;
         }
 
-        private static string ClassifyLoss(string type)
+        // ★ CHANGED: overlap秒数で厳密にScheduleActive内を抽出
+        private static double GetOverlappedSeconds(OperationInterval target, List<OperationInterval> schedules)
         {
-            if (string.IsNullOrWhiteSpace(type))
-                return "Waiting";
+            double seconds = 0;
 
-            if (type.IndexOf("Cutting", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                type.IndexOf("Sorting", StringComparison.OrdinalIgnoreCase) >= 0)
-                return null;
+            foreach (var schedule in schedules)
+            {
+                var start = target.Start > schedule.Start ? target.Start : schedule.Start;
+                var end = target.End < schedule.End ? target.End : schedule.End;
 
-            if (type.IndexOf("Setup", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                type.IndexOf("Load", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                type.IndexOf("Handling", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "Setup";
+                if (end > start)
+                    seconds += (end - start).TotalSeconds;
+            }
 
-            if (type.IndexOf("Error", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "Error";
+            return seconds;
+        }
 
-            if (type.IndexOf("Idle", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "Idle";
-
-            return "Waiting";
+        private static string ClassifyLoss(OperationType type)
+        {
+            switch (type)
+            {
+                case OperationType.Setup:
+                    return "Setup";
+                case OperationType.WaitingUpstream:
+                    return "WaitingUpstream";
+                case OperationType.WaitingDownstream:
+                    return "WaitingDownstream";
+                case OperationType.SystemInterrupt:
+                    return "SystemInterrupt";
+                case OperationType.Error:
+                    return "Error";
+                default:
+                    return "Unknown";
+            }
         }
 
         private static void AddAggregate(LossData data, string type, double seconds)
@@ -80,6 +98,28 @@ namespace Laser.Core.Analyzers
                 data.Count[type] = 0;
 
             data.Count[type] += 1;
+
+            switch (type)
+            {
+                case "Setup":
+                    data.SetupTime += seconds;
+                    break;
+                case "WaitingUpstream":
+                    data.WaitingUpstreamTime += seconds;
+                    break;
+                case "WaitingDownstream":
+                    data.WaitingDownstreamTime += seconds;
+                    break;
+                case "SystemInterrupt":
+                    data.SystemInterruptTime += seconds;
+                    break;
+                case "Error":
+                    data.ErrorTime += seconds;
+                    break;
+                default:
+                    data.UnknownTime += seconds;
+                    break;
+            }
         }
     }
 }

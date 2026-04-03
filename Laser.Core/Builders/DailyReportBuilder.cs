@@ -35,11 +35,11 @@ namespace Laser.Core.Builders
             var summary = new DailySummary
             {
                 Date = date,
-                CuttingTime = efficiency.CuttingTime,
+                RunningTime = efficiency.RunningTime,
+                ScheduleActiveTime = efficiency.ScheduleActiveTime,
                 SetupTime = efficiency.SetupTime,
                 IdleTime = efficiency.IdleTime,
-                ErrorTime = efficiency.ErrorTime,
-                TotalTime = efficiency.TotalTime
+                ErrorTime = efficiency.ErrorTime
             };
 
             return summary;

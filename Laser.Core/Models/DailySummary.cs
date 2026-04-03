@@ -6,16 +6,31 @@ namespace Laser.Core.Models
     {
         public DateTime Date { get; set; }
 
-        public TimeSpan CuttingTime { get; set; }
+        public TimeSpan RunningTime { get; set; }
+        public TimeSpan ScheduleActiveTime { get; set; }
         public TimeSpan SetupTime { get; set; }
         public TimeSpan IdleTime { get; set; }
         public TimeSpan ErrorTime { get; set; }
 
-        public TimeSpan TotalTime { get; set; }
+        public TimeSpan CuttingTime
+        {
+            get => RunningTime;
+            set => RunningTime = value;
+        }
+
+        // ★ CHANGED
+        public TimeSpan TotalTime
+        {
+            get => ScheduleActiveTime;
+            set => ScheduleActiveTime = value;
+        }
+
+        // ★ ADDED
+        public TimeSpan LossTime => ScheduleActiveTime - RunningTime;
 
         public double OperationRate =>
-            TotalTime.TotalSeconds == 0
+            ScheduleActiveTime.TotalSeconds == 0
             ? 0
-            : CuttingTime.TotalSeconds / TotalTime.TotalSeconds * 100;
+            : RunningTime.TotalSeconds / ScheduleActiveTime.TotalSeconds * 100;
     }
 }

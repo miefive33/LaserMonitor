@@ -1,11 +1,20 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace Laser.Core.Models
 {
+    public enum OperationType
+    {
+        ScheduleActive,
+        Running,
+        Setup,
+        WaitingUpstream,
+        WaitingDownstream,
+        SystemInterrupt,
+        Error,
+        Unknown
+    }
+    
     public class OperationInterval
     {
         public DateTime Start { get; set; }
@@ -13,7 +22,16 @@ namespace Laser.Core.Models
 
         public TimeSpan Duration => End - Start;
 
-        public string Type { get; set; } // Cutting / Setup / Idle など
+        public string Type { get; set; }
+
+        // ★ ADDED
+        public OperationType OperationType { get; set; }
+
+        // ★ ADDED
+        public bool IsScheduleActive => OperationType == OperationType.ScheduleActive;
+
+        // ★ ADDED
+        public bool IsRunning => OperationType == OperationType.Running;
 
         public override string ToString()
         {

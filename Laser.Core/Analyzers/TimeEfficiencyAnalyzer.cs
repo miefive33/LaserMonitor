@@ -1,9 +1,6 @@
 ﻿using Laser.Core.Models;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Laser.Core.Analyzers
 {
@@ -13,26 +10,31 @@ namespace Laser.Core.Analyzers
         {
             var result = new TimeEfficiencyResult();
 
+            if (intervals == null)
+                return result;
+
+
             foreach (var i in intervals)
             {
-                result.TotalTime += i.Duration;
-
-                switch (i.Type)
+                if (i.IsScheduleActive)
                 {
-                    case "Cutting":
-                        result.CuttingTime += i.Duration;
+                    // ★ CHANGED
+                    result.ScheduleActiveTime += i.Duration;
+                    continue;
+                }
+
+                switch (i.OperationType)
+                {
+                    case OperationType.Running:
+                        result.RunningTime += i.Duration;
                         break;
 
-                    case "Setup":
+                    case OperationType.Setup:
                         result.SetupTime += i.Duration;
                         break;
 
-                    case "Error":
+                    case OperationType.Error:
                         result.ErrorTime += i.Duration;
-                        break;
-
-                    case "Idle":
-                        result.IdleTime += i.Duration;
                         break;
 
                     default:

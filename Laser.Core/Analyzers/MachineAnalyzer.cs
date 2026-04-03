@@ -14,19 +14,26 @@ namespace Laser.Core.Analyzers
 
         private static string Classify(OperationInterval interval)
         {
-            var type = interval?.Type ?? string.Empty;
+            if (interval == null)
+                return "Unknown";
 
-            if (type.IndexOf("Cut", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "Cutting";
-
-            if (type.IndexOf("Wait", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "2PC / 3PC";
-
-            if (type.IndexOf("Interrupt", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                type.IndexOf("Error", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "Schedule stop / Error impact";
-
-            return "2PC / 3PC";
+            switch (interval.OperationType)
+            {
+                case OperationType.Running:
+                    return "Running";
+                case OperationType.Setup:
+                    return "Setup";
+                case OperationType.WaitingUpstream:
+                    return "WaitingUpstream";
+                case OperationType.WaitingDownstream:
+                    return "WaitingDownstream";
+                case OperationType.SystemInterrupt:
+                    return "SystemInterrupt";
+                case OperationType.Error:
+                    return "Error";
+                default:
+                    return "Unknown";
+            }
         }
 
         private static SummaryResult AnalyzeByRule(List<OperationInterval> intervals, Func<OperationInterval, string> classifier)
@@ -34,13 +41,20 @@ namespace Laser.Core.Analyzers
             var result = new SummaryResult();
             var source = intervals ?? new List<OperationInterval>();
 
-            double total = source.Sum(i => Math.Max(0, i.Duration.TotalSeconds));
-            if (total <= 0)
+            // ★ CHANGED: 分母はScheduleActiveのみ
+            var scheduleActiveSeconds = source
+                .Where(i => i.IsScheduleActive)
+                .Sum(i => Math.Max(0, i.Duration.TotalSeconds));
+
+            if (scheduleActiveSeconds <= 0)
                 return result;
 
-            foreach (var interval in source)
+            foreach (var interval in source.Where(i => !i.IsScheduleActive))
             {
                 var seconds = Math.Max(0, interval.Duration.TotalSeconds);
+                if (seconds <= 0)
+                    continue;
+
                 var key = classifier(interval);
 
                 if (!result.Breakdown.ContainsKey(key))
@@ -49,8 +63,11 @@ namespace Laser.Core.Analyzers
                 result.Breakdown[key] += seconds;
             }
 
-            var activeSeconds = result.Breakdown.ContainsKey("Cutting") ? result.Breakdown["Cutting"] : 0;
-            result.ActiveRate = activeSeconds / total * 100.0;
+            var runningSeconds = source
+                .Where(i => i.IsRunning)
+                .Sum(i => Math.Max(0, i.Duration.TotalSeconds));
+
+            result.ActiveRate = runningSeconds / scheduleActiveSeconds * 100.0;
             result.LossRate = 100.0 - result.ActiveRate;
 
             return result;
