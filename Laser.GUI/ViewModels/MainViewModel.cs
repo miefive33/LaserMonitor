@@ -201,7 +201,7 @@ namespace Laser.GUI.ViewModels
             };
         }
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
 
         protected void OnPropertyChanged(string name)
         {
@@ -271,21 +271,25 @@ namespace Laser.GUI.ViewModels
 
         private class ParameterRelayCommand : ICommand
         {
-            private readonly Action<object> _execute;
+            private readonly Action<object?> _execute;
 
-            public ParameterRelayCommand(Action<object> execute)
+            public ParameterRelayCommand(Action<object?> execute)
             {
                 _execute = execute;
             }
 
-            public event EventHandler CanExecuteChanged;
+            public event EventHandler? CanExecuteChanged
+            {
+                add { CommandManager.RequerySuggested += value; }
+                remove { CommandManager.RequerySuggested -= value; }
+            }
 
-            public bool CanExecute(object parameter)
+            public bool CanExecute(object? parameter)
             {
                 return true;
             }
 
-            public void Execute(object parameter)
+            public void Execute(object? parameter)
             {
                 _execute(parameter);
             }

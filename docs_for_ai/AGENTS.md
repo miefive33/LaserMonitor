@@ -17,8 +17,9 @@ AI must follow these rules at all times.
 1. AGENTS.md (this file)
 2. architecture.md
 3. module_responsibilities.md
-4. ui_design_constraints.md
-5. Existing code
+4. analyzer_responsibility_map.md
+5. ui_design_constraints.md
+6. Existing code
 
 If conflicts occur:
 → Follow this order strictly
@@ -49,6 +50,8 @@ AI MUST NOT:
 * perform calculations in GUI
 * introduce new architecture layers
 * refactor unrelated code
+* move cross-midnight logic into GUI or Builder
+* mix machine-role results into one fake exclusive state model without design approval
 
 ---
 
@@ -60,6 +63,7 @@ AI CAN:
 * extend ViewModel safely
 * add event handling
 * update UI content within constraints
+* add or refine models needed for schedule-based analysis
 
 ---
 
@@ -71,15 +75,18 @@ GUI is ONLY for:
 
 * displaying data
 * triggering events
+* selecting date / machine / filters
 
 ---
 
 ## ❌ GUI MUST NOT
 
 * calculate KPI
-* transform data
-* access database
+* transform raw log data into analysis result
+* access database directly
 * contain business logic
+* clip cross-midnight intervals
+* classify CUT / SORT / SYSTEM time
 
 ---
 
@@ -97,9 +104,12 @@ GUI is ONLY for:
 
 Analyzer is responsible for:
 
+* schedule reconstruction
+* cross-midnight aware daily segmentation
 * KPI calculation
 * time analysis
-* interval processing
+* machine-role analysis
+* interruption / error analysis
 
 ---
 
@@ -111,6 +121,47 @@ Analyzer is responsible for:
 
 ---
 
+# 🔥 Validated Domain Rule（最重要）
+
+The validated business rule is:
+
+> Schedule START to Schedule STOP/INTERRUPT is one automatic operation run.
+> The sum of such runs inside the selected day is the day's operation time.
+
+Inside that same daily operation time:
+
+* Laser machine uses CUT time
+* Sorter uses SORT time
+* System uses LOAD / UNLOAD / transport / pallet work time
+
+These role-based times:
+
+* share the same daily denominator
+* may overlap with each other
+* must be analyzed independently
+
+AI MUST preserve this rule.
+
+---
+
+# 🌙 Cross-Midnight Rule（絶対）
+
+Runs may cross midnight.
+
+AI MUST:
+
+1. reconstruct the original schedule interval first
+2. clip that interval to the selected day second
+3. analyze machine roles only inside the clipped daily segments
+
+AI MUST NOT:
+
+* assign the whole run only to the start date
+* assign the whole run only to the end date
+* ignore overlap with the selected day
+
+---
+
 # 🧩 Builder Rules
 
 ## Responsibilities
@@ -118,6 +169,7 @@ Analyzer is responsible for:
 Builder is responsible for:
 
 * formatting data for UI
+* converting analyzer results into cards, charts, tables, and text
 
 ---
 
@@ -126,10 +178,12 @@ Builder is responsible for:
 * calculate KPI
 * access database
 * implement business logic
+* reconstruct schedule intervals
+* decide cross-midnight ownership
 
 ---
 
-# 🧠 Service Rules（NEW / 重要）
+# 🧠 Service Rules（重要）
 
 ## Responsibilities
 
@@ -144,12 +198,12 @@ Service is responsible for:
 ## ❌ Service MUST NOT
 
 * implement analysis logic
-* format UI data
+* format UI data too deeply
 * directly manipulate UI
 
 ---
 
-## 🔥 DashboardService（重要）
+## 🔥 DashboardService
 
 Acts as:
 
@@ -157,7 +211,11 @@ Acts as:
 
 Responsibilities:
 
-* call multiple analyzers
+* call parser
+* call OperationAnalyzer
+* call ScheduleSplitter
+* call MachineAnalyzer / SorterAnalyzer / SystemAnalyzer
+* call LossAnalyzer / ErrorAnalyzer / BottleneckAnalyzer / TimeEfficiencyAnalyzer
 * aggregate results
 * pass data to ViewModel
 
@@ -195,6 +253,7 @@ AI MUST follow:
 
 * add controls inside HeaderView
 * update content inside existing panels
+* change binding targets as needed to show corrected analyzer results
 
 ---
 
@@ -205,7 +264,8 @@ When implementing features:
 1. Prefer existing methods
 2. Keep changes minimal
 3. Do NOT modify unrelated files
-4. Do NOT rename existing classes or methods
+4. Do NOT rename existing classes or methods unless the design truly requires it
+5. When changing analyzer behavior, update docs and code consistently
 
 ---
 
@@ -214,8 +274,9 @@ When implementing features:
 AI MUST:
 
 * Provide FULL modified code
-* Clearly indicate changes
+* Clearly indicate modified files
 * Explain where to place code
+* Reference AGENTS.md when proposing changes
 
 ---
 
@@ -225,6 +286,10 @@ If requirements are unclear:
 
 → ASK instead of guessing
 
+However, if the design rule is already defined in these docs:
+
+→ FOLLOW the docs, do not invent a new interpretation
+
 ---
 
 # 🎯 Design Philosophy
@@ -232,6 +297,7 @@ If requirements are unclear:
 * Simplicity over complexity
 * Stability over optimization
 * Consistency over flexibility
+* Daily denominator must be trustworthy
 
 ---
 
@@ -239,41 +305,50 @@ If requirements are unclear:
 
 This system is based on:
 
-👉 「設備 × 原因 × 時間 × 優先度」
+👉 「日次自動運転時間 × 設備役割 × 原因 × 優先度」
 
 ---
 
 ## Analysis Layers
 
-### ① What happened（現象）
+### ① Denominator
 
-* LossAnalyzer
-* TimeEfficiencyAnalyzer
+* OperationAnalyzer
+* ScheduleSplitter
 
----
-
-### ② Why happened（原因）
-
-* ErrorAnalyzer
-* SystemAnalyzer
+👉 day-level operation time
 
 ---
 
-### ③ Where happened（対象）
+### ② Role-based activity
 
 * MachineAnalyzer
 * SorterAnalyzer
-* SheetAnalyzer
+* SystemAnalyzer
+
+👉 who used that time
 
 ---
 
-### ④ What to fix（優先度）
+### ③ Cause analysis
+
+* LossAnalyzer
+* ErrorAnalyzer
+* TimeEfficiencyAnalyzer
+
+👉 why time was not fully productive
+
+---
+
+### ④ Improvement priority
 
 * BottleneckAnalyzer
 
+👉 what to fix first
+
 ---
 
-👉 These layers must remain independent
+These layers must remain independent.
 
 ---
 
@@ -281,4 +356,4 @@ This system is based on:
 
 AI should behave like:
 
-"A careful engineer who respects architecture, avoids unnecessary changes, and builds only what is required."
+"A careful engineer who respects architecture, preserves the validated daily analysis rule, and avoids inventing hidden assumptions."
