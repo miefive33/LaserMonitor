@@ -5,124 +5,37 @@
 LaserMonitor is a WPF desktop application that:
 
 - parses laser machine logs
-- reconstructs automatic operation runs from scheduling logs
-- analyzes daily operation by machine role
-- stores results in SQLite
+- reconstructs automatic operation blocks
+- analyzes machine / sorter / system activity
+- analyzes loss / error / bottleneck structure
+- stores data in SQLite
 - visualizes KPIs and timelines
 
 ---
 
-## 2. Core Analysis Concept（最重要）
+## 2. Project Structure
 
-This system must analyze one day from the viewpoint of:
+Refer to:
 
-- automatic operation time of the day
-- laser machine working time inside that automatic operation
-- sorter working time inside that automatic operation
-- system transport / warehouse / pallet work inside that automatic operation
-
-The analysis target is **not simply individual events**.
-The analysis target is:
-
-> "How much of the day's automatic operation time was used by each machine role?"
+- project_tree.md
+- module_responsibilities.md
 
 ---
 
-## 3. Daily Time Definition（最重要）
+## 3. Core Architecture
 
-### 3.1 Day range
+Laser.Core is divided into:
 
-A daily report always targets:
-
-- 00:00:00 to 23:59:59 of the selected date
-
----
-
-### 3.2 Automatic operation time
-
-Automatic operation time is defined by:
-
-- `Start Scheduling`
-- `Scheduling stopped by operator`
-- `Scheduling interrupted`
-
-One automatic run is one interval from Schedule START to Schedule STOP/INTERRUPT.
-The sum of all such intervals inside the day is the day's **operation time**.
+- Parsers
+- Models
+- Analyzers
+- Builders
+- Services
+- SQLite access
 
 ---
 
-### 3.3 Cross-midnight rule（重要）
-
-Runs may cross midnight.
-
-Examples:
-
-- a run starts before 00:00 and continues into the selected day
-- a run starts in the selected day and ends after 24:00
-
-Rule:
-
-- first reconstruct the full scheduling interval
-- then clip it to the selected day's range
-- only the overlapped portion belongs to that day
-
-Therefore:
-
-- a run that started on the previous day can contribute operation time to the selected day
-- a run that ends on the next day can also contribute operation time to the selected day
-
-This rule is mandatory for all analyzers.
-
----
-
-## 4. Machine-based Analysis Model（重要）
-
-The project must analyze three different machine roles separately.
-
-### 4.1 Laser machine
-
-Inside automatic operation time, the laser machine is evaluated by:
-
-- CUT = `Cutting started` → `Cutting completed`
-- IDLE = automatic operation time minus CUT time
-- optional subclasses may later split IDLE into WAIT / INTERRUPT / PALLET CHANGE related states
-
----
-
-### 4.2 Sorter robot
-
-Inside automatic operation time, the sorter is evaluated by:
-
-- SORT = `Sorting started` → `Sorting completed`
-- IDLE = automatic operation time minus SORT time
-
----
-
-### 4.3 System
-
-Inside automatic operation time, the system is evaluated by transport / warehouse / pallet actions such as:
-
-- Load sheet
-- Unload sheet
-- Unload/Load
-- PlaceProduct
-- Pallet change
-- Third pallet change
-- drawer movement / material stocker movement
-
-System working time is the union of these transport-related intervals.
-System idle time is automatic operation time minus that union.
-
-Important:
-
-- system work may overlap with laser CUT
-- system work may overlap with sorter work
-- therefore machine-role totals are analyzed independently
-- these role-based times must NOT be summed together as if they were exclusive states
-
----
-
-## 5. Data Flow（最重要）
+## 4. Data Flow（最重要）
 
 ```text
 Log file
@@ -133,113 +46,223 @@ LogEvent[]
  ↓
 OperationAnalyzer
  ↓
-ScheduleInterval[]
- ↓
 ScheduleSplitter
  ↓
-DailyScheduleSegment[]
+Day-bounded intervals / events
  ↓
- ├─ MachineAnalyzer
- ├─ SorterAnalyzer
- ├─ SystemAnalyzer
- ├─ LossAnalyzer
- ├─ ErrorAnalyzer
- ├─ TimeEfficiencyAnalyzer
- └─ BottleneckAnalyzer
+MachineAnalyzer / SorterAnalyzer / SystemAnalyzer
  ↓
-Builders
+LossAnalyzer / ErrorAnalyzer / TimeEfficiencyAnalyzer / BottleneckAnalyzer
  ↓
-DashboardService
+Builder
  ↓
-SQLiteService
+DashboardService / SqliteService
  ↓
 GUI
 ```
 
 ---
 
-## 6. Architectural Intent
+## 5. Daily Time Model（重要）
 
-### 6.1 OperationAnalyzer
+This system must use a shared daily denominator.
 
-OperationAnalyzer is responsible for reconstructing scheduling runs.
-It defines the denominator of daily operation.
+### Automatic operation block
+A single automatic operation block is:
 
-### 6.2 ScheduleSplitter
+- `Start Scheduling`
+  to
+- `Scheduling stopped by operator`
+  or
+- `Scheduling interrupted`
 
-ScheduleSplitter is responsible for clipping / splitting reconstructed runs into the selected day.
-It is the owner of the cross-midnight rule.
+### Daily operating time
+Daily operating time is:
 
-### 6.3 Role analyzers
+- the total overlap between automatic operation blocks and the target day
 
-Role analyzers evaluate the selected day from different viewpoints.
-
-- MachineAnalyzer = laser machine
-- SorterAnalyzer = sorter robot
-- SystemAnalyzer = transport / warehouse / pallet system
-
-### 6.4 Cause analyzers
-
-Cause analyzers explain non-working time or interruptions.
-
-- LossAnalyzer
-- ErrorAnalyzer
-- BottleneckAnalyzer
-- TimeEfficiencyAnalyzer
+This rule applies to all analyzers.
 
 ---
 
-## 7. Key Rules（AI用）
+## 6. Day-Crossing Rule（重要）
 
-### Allowed architecture
+If one automatic operation block crosses midnight,
+the time must be split by date.
 
-Log → Parser → Analyzer → Builder → Service → SQLite → GUI
+### Responsibility
+- OperationAnalyzer restores the original operation block
+- ScheduleSplitter owns day-overlap handling
 
-### Forbidden
-
-DO NOT:
-
-- calculate daily operation time in GUI
-- calculate cross-midnight clipping in GUI
-- access SQLite directly from GUI
-- merge role-based analyzer logic into Builder
-- treat CUT / SORT / SYSTEM as one exclusive state machine unless explicitly designed
-- break scheduling intervals directly in UI code
-
-### Required
-
-MUST:
-
-- reconstruct schedule runs first
-- split by date second
-- analyze each machine role independently inside the same daily operation time
-- keep overlap semantics explicit
+No other layer may redefine date ownership independently.
 
 ---
 
-## 8. Why this architecture changed
+## 7. Three Analysis Perspectives（重要）
 
-Previous analyzer design leaned too much toward generic interval analysis.
-The validated log reading showed that the real production question is:
+The system analyzes one day from three independent perspectives.
 
-- what was the day's automatic operation time?
-- how much of that time did the laser machine actually CUT?
-- how much did the sorter actually SORT?
-- how much did the system actually perform transport work?
+### 7.1 Laser machine
+- active time = CUT time
+- idle / non-cut time = remaining time inside the same daily operating denominator
 
-Therefore the architecture must prioritize:
+### 7.2 Sorter
+- active time = SORT time
+- idle / non-sort time = remaining time inside the same daily operating denominator
 
-- schedule-based daily denominator
-- machine-role specific numerators
-- explicit cross-midnight handling
+### 7.3 System
+- active time = load / unload / unload-load / place product / pallet change / drawer & warehouse movement related activity
+- system activity may overlap with CUT or SORT
+
+### Important
+These three perspectives do NOT need to sum to 100%.
+This is intentional.
 
 ---
 
-## 9. Related Documents
+## 8. Analyzer Design
 
-- AGENTS.md
-- module_responsibilities.md
+Detailed responsibilities are defined in:
+
 - analyzer_responsibility_map.md
-- project_tree.md
-- sqlite_design.md
-- ui_design_constraints.md
+- module_responsibilities.md
+
+### Summary
+
+#### OperationAnalyzer
+Reconstruct automatic operation blocks from logs.
+
+#### ScheduleSplitter
+Split intervals by day and fix the daily denominator.
+
+#### MachineAnalyzer
+Analyze CUT and non-CUT from machine perspective.
+
+#### SorterAnalyzer
+Analyze SORT and non-SORT from sorter perspective.
+
+#### SystemAnalyzer
+Analyze transfer / loading / unloading / pallet / warehouse related activity.
+System activity may overlap with CUT / SORT.
+
+#### LossAnalyzer
+Analyze non-value-added time during automatic operation.
+Loss is treated as a phenomenon.
+
+#### ErrorAnalyzer
+Analyze explicit abnormal events and their interruption impact.
+Error is treated as an abnormal cause.
+
+#### BottleneckAnalyzer
+Return improvement priority based on duration, recurrence, and interruption severity.
+
+---
+
+## 9. Loss / Error / Bottleneck Boundary（重要）
+
+The boundary between these analyzers must remain clear.
+
+### LossAnalyzer
+Handles:
+- waiting
+- delay
+- non-value-added structure
+- machine / sorter / system loss view
+
+### ErrorAnalyzer
+Handles:
+- explicit failure
+- error code
+- interruption
+- recovery impact
+
+### BottleneckAnalyzer
+Handles:
+- what should be fixed first
+- ranking based on total impact and recurrence
+
+This separation is mandatory.
+
+---
+
+## 10. Builder Role
+
+Builders must:
+
+- format analyzer outputs for UI
+- prepare graph-friendly and card-friendly structures
+
+Builders must NOT:
+
+- recalculate KPIs
+- reinterpret loss/error
+- implement business logic
+
+---
+
+## 11. Service Role
+
+### DashboardService
+Acts as the orchestrator between Core and GUI.
+
+Responsibilities:
+- call analyzers in correct order
+- provide integrated analysis results
+- feed ViewModel safely
+
+### SqliteService
+Handles:
+- SELECT
+- INSERT
+- DELETE for rebuild only
+
+SqliteService must NOT:
+- implement analysis logic
+- format UI data
+
+---
+
+## 12. GUI Architecture
+
+Laser.GUI is presentation only.
+
+GUI may:
+- trigger LoadLog(DateTime)
+- bind ViewModel
+- display results
+
+GUI must NOT:
+- calculate KPI
+- decide date ownership
+- perform analyzer logic
+- access SQLite directly
+
+---
+
+## 13. Key Rules（AI用）
+
+Do NOT:
+- break architecture flow
+- move analysis into GUI
+- invent new architecture layers
+- make system/cut/sort mutually exclusive without log evidence
+- redefine the denominator in each analyzer
+
+Do:
+- preserve shared daily operating time
+- preserve day-crossing split logic
+- preserve analyzer responsibility boundaries
+- keep changes minimal
+
+---
+
+## 14. Design Philosophy
+
+This architecture is based on:
+
+- shared denominator
+- strict day-boundary handling
+- independent machine / sorter / system views
+- clear separation of phenomenon / abnormality / priority
+
+This is necessary to produce analysis that is actually useful for shop-floor improvement.
