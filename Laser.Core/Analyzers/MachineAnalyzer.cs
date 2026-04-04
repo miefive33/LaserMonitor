@@ -9,68 +9,55 @@ namespace Laser.Core.Analyzers
     {
         public SummaryResult Analyze(List<OperationInterval> intervals)
         {
-            return AnalyzeByRule(intervals, Classify);
-        }
-
-        private static string Classify(OperationInterval interval)
-        {
-            if (interval == null)
-                return "Unknown";
-
-            switch (interval.OperationType)
-            {
-                case OperationType.Running:
-                    return "Running";
-                case OperationType.Setup:
-                    return "Setup";
-                case OperationType.WaitingUpstream:
-                    return "WaitingUpstream";
-                case OperationType.WaitingDownstream:
-                    return "WaitingDownstream";
-                case OperationType.SystemInterrupt:
-                    return "SystemInterrupt";
-                case OperationType.Error:
-                    return "Error";
-                default:
-                    return "Unknown";
-            }
-        }
-
-        private static SummaryResult AnalyzeByRule(List<OperationInterval> intervals, Func<OperationInterval, string> classifier)
-        {
             var result = new SummaryResult();
             var source = intervals ?? new List<OperationInterval>();
 
-            // ★ CHANGED: 分母はScheduleActiveのみ
-            var scheduleActiveSeconds = source
+            var denominator = source
                 .Where(i => i.IsScheduleActive)
                 .Sum(i => Math.Max(0, i.Duration.TotalSeconds));
 
-            if (scheduleActiveSeconds <= 0)
+            if (denominator <= 0)
                 return result;
 
-            foreach (var interval in source.Where(i => !i.IsScheduleActive))
-            {
-                var seconds = Math.Max(0, interval.Duration.TotalSeconds);
-                if (seconds <= 0)
-                    continue;
+            var cutSeconds = MergeAndSumSeconds(source
+                .Where(i => i.OperationType == OperationType.Cutting)
+                .ToList());
 
-                var key = classifier(interval);
+            var nonCutSeconds = Math.Max(0, denominator - cutSeconds);
 
-                if (!result.Breakdown.ContainsKey(key))
-                    result.Breakdown[key] = 0;
-
-                result.Breakdown[key] += seconds;
-            }
-
-            var runningSeconds = source
-                .Where(i => i.IsRunning)
-                .Sum(i => Math.Max(0, i.Duration.TotalSeconds));
-
-            result.ActiveRate = runningSeconds / scheduleActiveSeconds * 100.0;
+            result.Breakdown["CUT"] = cutSeconds;
+            result.Breakdown["MachineNonCut"] = nonCutSeconds;
+            result.ActiveRate = cutSeconds / denominator * 100.0;
             result.LossRate = 100.0 - result.ActiveRate;
 
             return result;
+        }
+
+        private static double MergeAndSumSeconds(List<OperationInterval> intervals)
+        {
+            if (intervals == null || intervals.Count == 0)
+                return 0;
+
+            var ordered = intervals.OrderBy(i => i.Start).ToList();
+            var merged = new List<OperationInterval> { ordered[0] };
+
+            foreach (var interval in ordered.Skip(1))
+            {
+                var last = merged[merged.Count - 1];
+                if (interval.Start <= last.End)
+                {
+                    if (interval.End > last.End)
+                    {
+                        last.End = interval.End;
+                    }
+                }
+                else
+                {
+                    merged.Add(new OperationInterval { Start = interval.Start, End = interval.End });
+                }
+            }
+
+            return merged.Sum(i => Math.Max(0, i.Duration.TotalSeconds));
         }
     }
 }

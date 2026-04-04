@@ -145,7 +145,7 @@ namespace Laser.GUI.ViewModels
             _currentDate = date;
 
             var sourceEvents = Events ?? new List<LogEvent>();
-            _currentIntervals = _dashboardService.Analyze(sourceEvents);
+            _currentIntervals = _dashboardService.Analyze(sourceEvents, _currentDate);
 
             RecalculateSelectedSummary();
         }

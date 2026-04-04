@@ -11,46 +11,53 @@ namespace Laser.Core.Analyzers
         {
             var result = new SummaryResult();
             var source = intervals ?? new List<OperationInterval>();
-            double total = source.Sum(i => Math.Max(0, i.Duration.TotalSeconds));
-            if (total <= 0)
+
+            var denominator = source
+                .Where(i => i.IsScheduleActive)
+                .Sum(i => Math.Max(0, i.Duration.TotalSeconds));
+
+            if (denominator <= 0)
                 return result;
 
-            foreach (var interval in source)
-            {
-                var seconds = Math.Max(0, interval.Duration.TotalSeconds);
-                var key = Classify(interval?.Type);
+            var systemSeconds = MergeAndSumSeconds(source
+                .Where(i => i.OperationType == OperationType.SystemAction)
+                .ToList());
 
-                if (!result.Breakdown.ContainsKey(key))
-                    result.Breakdown[key] = 0;
+            var idleSeconds = Math.Max(0, denominator - systemSeconds);
 
-                result.Breakdown[key] += seconds;
-            }
-
-            var activeSeconds = result.Breakdown.ContainsKey("SETUP") ? result.Breakdown["SETUP"] : 0;
-            result.ActiveRate = activeSeconds / total * 100.0;
+            result.Breakdown["SystemActive"] = systemSeconds;
+            result.Breakdown["SystemIdle"] = idleSeconds;
+            result.ActiveRate = systemSeconds / denominator * 100.0;
             result.LossRate = 100.0 - result.ActiveRate;
 
             return result;
         }
 
-        private static string Classify(string type)
+        private static double MergeAndSumSeconds(List<OperationInterval> intervals)
         {
-            var value = type ?? string.Empty;
+            if (intervals == null || intervals.Count == 0)
+                return 0;
 
-            if (value.IndexOf("Setup", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("Load", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("Unload", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("Stock", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "SETUP";
+            var ordered = intervals.OrderBy(i => i.Start).ToList();
+            var merged = new List<OperationInterval> { ordered[0] };
 
-            if (value.IndexOf("Error", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("Alarm", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "ERROR";
+            foreach (var interval in ordered.Skip(1))
+            {
+                var last = merged[merged.Count - 1];
+                if (interval.Start <= last.End)
+                {
+                    if (interval.End > last.End)
+                    {
+                        last.End = interval.End;
+                    }
+                }
+                else
+                {
+                    merged.Add(new OperationInterval { Start = interval.Start, End = interval.End });
+                }
+            }
 
-            if (value.IndexOf("Interrupt", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "INTERRUPT";
-
-            return "IDLE";
+            return merged.Sum(i => Math.Max(0, i.Duration.TotalSeconds));
         }
     }
 }

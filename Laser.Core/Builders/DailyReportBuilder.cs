@@ -25,9 +25,11 @@ namespace Laser.Core.Builders
                 return new DailySummary { Date = date };
             }
 
-            // 日付フィルタ（重要）
+            var dayStart = date.Date;
+            var dayEnd = dayStart.AddDays(1);
+
             var targetIntervals = intervals
-                .Where(i => i.Start.Date == date.Date)
+                .Where(i => i.End > dayStart && i.Start < dayEnd)
                 .ToList();
 
             var efficiency = _efficiencyAnalyzer.Analyze(targetIntervals);

@@ -10,48 +10,54 @@ namespace Laser.Core.Analyzers
         public SummaryResult Analyze(List<OperationInterval> intervals)
         {
             var result = new SummaryResult();
-            var source = (intervals ?? new List<OperationInterval>())
-                 .Where(i => !i.IsScheduleActive)
-                 .ToList();
-            double total = source.Sum(i => Math.Max(0, i.Duration.TotalSeconds));
-            // ★ CHANGED: ignore ScheduleActive wrapper intervals
-            if (total <= 0)
+            var source = intervals ?? new List<OperationInterval>();
+
+            var denominator = source
+                .Where(i => i.IsScheduleActive)
+                .Sum(i => Math.Max(0, i.Duration.TotalSeconds));
+
+            if (denominator <= 0)
                 return result;
 
-            foreach (var interval in source)
-            {
-                var seconds = Math.Max(0, interval.Duration.TotalSeconds);
-                var key = Classify(interval?.Type);
+            var sortSeconds = MergeAndSumSeconds(source
+                .Where(i => i.OperationType == OperationType.Sorting)
+                .ToList());
 
-                if (!result.Breakdown.ContainsKey(key))
-                    result.Breakdown[key] = 0;
+            var idleSeconds = Math.Max(0, denominator - sortSeconds);
 
-                result.Breakdown[key] += seconds;
-            }
-
-            var activeSeconds = result.Breakdown.ContainsKey("Sorting active") ? result.Breakdown["Sorting active"] : 0;
-            result.ActiveRate = activeSeconds / total * 100.0;
+            result.Breakdown["SORT"] = sortSeconds;
+            result.Breakdown["SorterIdle"] = idleSeconds;
+            result.ActiveRate = sortSeconds / denominator * 100.0;
             result.LossRate = 100.0 - result.ActiveRate;
 
             return result;
         }
 
-        private static string Classify(string type)
+        private static double MergeAndSumSeconds(List<OperationInterval> intervals)
         {
-            var value = type ?? string.Empty;
+            if (intervals == null || intervals.Count == 0)
+                return 0;
 
-            if (value.IndexOf("Sort", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "Sorting active";
+            var ordered = intervals.OrderBy(i => i.Start).ToList();
+            var merged = new List<OperationInterval> { ordered[0] };
 
-            if (value.IndexOf("Wait", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "Waiting for input";
+            foreach (var interval in ordered.Skip(1))
+            {
+                var last = merged[merged.Count - 1];
+                if (interval.Start <= last.End)
+                {
+                    if (interval.End > last.End)
+                    {
+                        last.End = interval.End;
+                    }
+                }
+                else
+                {
+                    merged.Add(new OperationInterval { Start = interval.Start, End = interval.End });
+                }
+            }
 
-            if (value.IndexOf("Stop", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("Error", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                value.IndexOf("Interrupt", StringComparison.OrdinalIgnoreCase) >= 0)
-                return "System stop";
-
-            return "Waiting for input";
+            return merged.Sum(i => Math.Max(0, i.Duration.TotalSeconds));
         }
     }
 }

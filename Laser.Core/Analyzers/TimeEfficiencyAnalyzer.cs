@@ -1,6 +1,7 @@
 ﻿using Laser.Core.Models;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Laser.Core.Analyzers
 {
@@ -9,41 +10,60 @@ namespace Laser.Core.Analyzers
         public TimeEfficiencyResult Analyze(List<OperationInterval> intervals)
         {
             var result = new TimeEfficiencyResult();
-
             if (intervals == null)
                 return result;
 
+            var denominatorSeconds = intervals
+                .Where(i => i.IsScheduleActive)
+                .Sum(i => Math.Max(0, i.Duration.TotalSeconds));
 
-            foreach (var i in intervals)
+            result.ScheduleActiveTime = TimeSpan.FromSeconds(denominatorSeconds);
+
+            if (denominatorSeconds <= 0)
+                return result;
+
+            var cutSeconds = SumMergedSeconds(intervals.Where(i => i.OperationType == OperationType.Cutting));
+            var systemSeconds = SumMergedSeconds(intervals.Where(i => i.OperationType == OperationType.SystemAction));
+
+            result.RunningTime = TimeSpan.FromSeconds(cutSeconds);
+            result.SetupTime = TimeSpan.FromSeconds(systemSeconds);
+            result.IdleTime = TimeSpan.FromSeconds(Math.Max(0, denominatorSeconds - cutSeconds));
+            result.ErrorTime = TimeSpan.Zero;
+
+            return result;
+        }
+
+        private static double SumMergedSeconds(IEnumerable<OperationInterval> intervals)
+        {
+            var ordered = (intervals ?? Enumerable.Empty<OperationInterval>())
+                .Where(i => i != null && i.End > i.Start)
+                .OrderBy(i => i.Start)
+                .ToList();
+
+            if (ordered.Count == 0)
+                return 0;
+
+            var total = 0.0;
+            var currentStart = ordered[0].Start;
+            var currentEnd = ordered[0].End;
+
+            foreach (var interval in ordered.Skip(1))
             {
-                if (i.IsScheduleActive)
+                if (interval.Start <= currentEnd)
                 {
-                    // ★ CHANGED
-                    result.ScheduleActiveTime += i.Duration;
-                    continue;
+                    if (interval.End > currentEnd)
+                        currentEnd = interval.End;
                 }
-
-                switch (i.OperationType)
+                else
                 {
-                    case OperationType.Running:
-                        result.RunningTime += i.Duration;
-                        break;
-
-                    case OperationType.Setup:
-                        result.SetupTime += i.Duration;
-                        break;
-
-                    case OperationType.Error:
-                        result.ErrorTime += i.Duration;
-                        break;
-
-                    default:
-                        result.IdleTime += i.Duration;
-                        break;
+                    total += (currentEnd - currentStart).TotalSeconds;
+                    currentStart = interval.Start;
+                    currentEnd = interval.End;
                 }
             }
 
-            return result;
+            total += (currentEnd - currentStart).TotalSeconds;
+            return Math.Max(0, total);
         }
     }
 }
