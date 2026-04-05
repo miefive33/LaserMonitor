@@ -15,33 +15,17 @@ namespace Laser.Core.Builders
             if (lossData == null)
                 return result;
 
-            var order = new[]
+            foreach (var entry in lossData.TotalTime.OrderByDescending(kv => kv.Value))
             {
-                "Setup",
-                "WaitingUpstream",
-                "WaitingDownstream",
-                "SystemInterrupt",
-                "Error",
-                "Unknown"
-            };
-
-            foreach (var type in order)
-            {
-                var totalSeconds = lossData.TotalTime.ContainsKey(type)
-                    ? lossData.TotalTime[type]
-                    : 0;
-
-                var count = lossData.Count.ContainsKey(type)
-                    ? lossData.Count[type]
-                    : 0;
-
-                var minutes = TimeSpan.FromSeconds(totalSeconds).TotalMinutes;
-                result.Add($"{type} : {minutes:0.#} min ({count} times)");
+                var count = lossData.Count.ContainsKey(entry.Key) ? lossData.Count[entry.Key] : 0;
+                var minutes = TimeSpan.FromSeconds(entry.Value).TotalMinutes;
+                result.Add($"{entry.Key} : {minutes:0.#} min ({count} times)");
             }
 
             Debug.WriteLine($"[KpiBuilder] loss output: {string.Join(" | ", result)}");
             return result;
         }
+
         public List<string> BuildKpiSummary(DailySummary weeklyKpi, LossData lossData)
         {
             var result = new List<string>();
@@ -67,15 +51,34 @@ namespace Laser.Core.Builders
             if (errorData == null || errorData.Items == null)
                 return result;
 
-            foreach (var item in errorData.Items.OrderByDescending(i => i.Count))
+            foreach (var item in errorData.Items.OrderByDescending(i => i.TotalTime))
             {
                 var totalMinutes = TimeSpan.FromSeconds(item.TotalTime).TotalMinutes;
                 var avgMinutes = TimeSpan.FromSeconds(item.AvgDuration).TotalMinutes;
 
-                result.Add($"{item.Type} : {item.Count} times / {totalMinutes:0.#} min (avg {avgMinutes:0.#} min)");
+                var codePart = string.IsNullOrWhiteSpace(item.ErrorCode) ? string.Empty : $" code {item.ErrorCode}";
+                result.Add($"{item.Type}{codePart} : {item.Count} times / {totalMinutes:0.#} min (avg {avgMinutes:0.#} min)");
             }
 
             Debug.WriteLine($"[KpiBuilder] error output: {string.Join(" | ", result)}");
+            return result;
+        }
+
+        public List<string> BuildBottleneckSummary(BottleneckData bottleneckData, int top = 3)
+        {
+            var result = new List<string>();
+
+            if (bottleneckData?.Items == null)
+                return result;
+
+            var rank = 1;
+            foreach (var item in bottleneckData.Items.Take(top))
+            {
+                var minutes = TimeSpan.FromSeconds(item.TotalTime).TotalMinutes;
+                result.Add($"{rank}位 {item.Category} ({item.Perspective}) {minutes:0.#}分 / {item.Count}回");
+                rank++;
+            }
+
             return result;
         }
     }

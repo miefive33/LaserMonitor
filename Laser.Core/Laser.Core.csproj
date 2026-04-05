@@ -70,7 +70,9 @@
     <Compile Include="Analyzers\TimeEfficiencyAnalyzer.cs" />
     <Compile Include="Builders\DailyReportBuilder.cs" />
     <Compile Include="Builders\KpiBuilder.cs" />
+    <Compile Include="Models\BottleneckData.cs" />
     <Compile Include="Models\DailySummary.cs" />
+    <Compile Include="Models\DashboardAnalysisResult.cs" />
     <Compile Include="Models\ErrorData.cs" />
     <Compile Include="Models\LogEvent.cs" />
     <Compile Include="Models\LossData.cs" />

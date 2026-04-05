@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:oxy="http://oxyplot.org/wpf"
              DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
-    
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition/>
@@ -48,9 +48,13 @@
         <Border Style="{StaticResource CardStyle}" Grid.Column="2">
             <StackPanel>
                 <TextBlock Text="ボトルネック" Style="{StaticResource TitleText}"/>
-                <TextBlock Text="1位 エラー 45分" Foreground="White"/>
-                <TextBlock Text="2位 待機 22分" Foreground="White"/>
-                <TextBlock Text="3位 段取り 15分" Foreground="White"/>
+                <ItemsControl ItemsSource="{Binding BottleneckSummary}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" Foreground="White" Margin="0,2,0,0"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
         </Border>
     </Grid>

@@ -1,5 +1,4 @@
-﻿using Laser.Core.Analyzers;
-using Laser.Core.Models;
+﻿using Laser.Core.Models;
 using Laser.Core.Parsers;
 using Laser.Core.Services;
 using Laser.GUI.Commands;
@@ -21,12 +20,8 @@ namespace Laser.GUI.ViewModels
         public ICommand SelectMachineCommand { get; }
 
         private readonly DashboardService _dashboardService;
-        private readonly MachineAnalyzer _machineAnalyzer;
-        private readonly SorterAnalyzer _sorterAnalyzer;
-        private readonly SystemAnalyzer _systemAnalyzer;
 
         private DateTime _currentDate;
-        private List<OperationInterval> _currentIntervals;
 
         public MainViewModel()
         {
@@ -40,12 +35,8 @@ namespace Laser.GUI.ViewModels
             });
 
             _dashboardService = new DashboardService();
-            _machineAnalyzer = new MachineAnalyzer();
-            _sorterAnalyzer = new SorterAnalyzer();
-            _systemAnalyzer = new SystemAnalyzer();
 
             _currentDate = DateTime.Today;
-            _currentIntervals = new List<OperationInterval>();
 
             Machines = new ObservableCollection<Machine>
             {
@@ -60,6 +51,7 @@ namespace Laser.GUI.ViewModels
             PieModel = CreatePieModel(new SummaryResult());
             LossSummary = new List<string>();
             ErrorSummary = new List<string>();
+            BottleneckSummary = new List<string>();
         }
 
         private List<LogEvent> _events;
@@ -140,65 +132,31 @@ namespace Laser.GUI.ViewModels
             }
         }
 
+        private List<string> _bottleneckSummary;
+
+        public List<string> BottleneckSummary
+        {
+            get => _bottleneckSummary;
+            private set
+            {
+                _bottleneckSummary = value;
+                OnPropertyChanged(nameof(BottleneckSummary));
+            }
+        }
+
         public void UpdateKpi(DateTime date)
         {
             _currentDate = date;
 
             var sourceEvents = Events ?? new List<LogEvent>();
-            _currentIntervals = _dashboardService.Analyze(sourceEvents, _currentDate);
+            var machineId = SelectedMachine?.Id ?? "laser";
+            var dashboardResult = _dashboardService.AnalyzeDashboard(sourceEvents, _currentDate, machineId);
 
-            RecalculateSelectedSummary();
-        }
-
-        private void RecalculateSelectedSummary()
-        {
-            var summary = AnalyzeByTarget(_currentIntervals, SelectedMachine);
-
-            KpiSummary = ToDailySummary(_currentDate, summary);
-            PieModel = CreatePieModel(summary);
-
-            LossSummary = summary.Breakdown
-                .OrderByDescending(x => x.Value)
-                .Select(x => $"{x.Key}: {TimeSpan.FromSeconds(x.Value):hh\\:mm\\:ss}")
-                .ToList();
-
-            ErrorSummary = new List<string>
-            {
-                $"Target: {SelectedMachine?.Name}",
-                $"ActiveRate: {summary.ActiveRate:0.0}%",
-                $"LossRate: {summary.LossRate:0.0}%"
-            };
-        }
-
-        private SummaryResult AnalyzeByTarget(List<OperationInterval> intervals, Machine machine)
-        {
-            switch (machine?.Id)
-            {
-                case "laser":
-                    return _machineAnalyzer.Analyze(intervals);
-
-                case "sorting":
-                    return _sorterAnalyzer.Analyze(intervals);
-
-                case "system":
-                    return _systemAnalyzer.Analyze(intervals);
-
-                default:
-                    return _machineAnalyzer.Analyze(intervals);
-            }
-        }
-
-        private static DailySummary ToDailySummary(DateTime date, SummaryResult summary)
-        {
-            var totalSeconds = summary.Breakdown.Values.Sum();
-
-            return new DailySummary
-            {
-                Date = date,
-                TotalTime = TimeSpan.FromSeconds(totalSeconds),
-                CuttingTime = TimeSpan.FromSeconds(totalSeconds * summary.ActiveRate / 100.0),
-                IdleTime = TimeSpan.FromSeconds(totalSeconds * summary.LossRate / 100.0)
-            };
+            KpiSummary = dashboardResult.DailySummary;
+            PieModel = CreatePieModel(dashboardResult.SelectedSummary);
+            LossSummary = dashboardResult.LossSummaryLines;
+            ErrorSummary = dashboardResult.ErrorSummaryLines;
+            BottleneckSummary = dashboardResult.BottleneckSummaryLines;
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
