@@ -8,6 +8,7 @@ LaserMonitor is a WPF desktop application that:
 - reconstructs automatic operation blocks
 - analyzes machine / sorter / system activity
 - analyzes loss / error / bottleneck structure
+- reconstructs CNC-based daily operation flow
 - stores data in SQLite
 - visualizes KPIs and timelines
 
@@ -50,7 +51,7 @@ ScheduleSplitter
  ↓
 Day-bounded intervals / events
  ↓
-MachineAnalyzer / SorterAnalyzer / SystemAnalyzer
+MachineAnalyzer / SorterAnalyzer / SystemAnalyzer / SheetAnalyzer
  ↓
 LossAnalyzer / ErrorAnalyzer / TimeEfficiencyAnalyzer / BottleneckAnalyzer
  ↓
@@ -120,7 +121,41 @@ This is intentional.
 
 ---
 
-## 8. Analyzer Design
+## 8. CNC Timeline Model（重要）
+
+The timeline shown in GUI is not a raw equipment-position chart.
+
+It is:
+
+👉 a CNC-based daily operation flow chart
+
+### One row = one CNC
+Each row represents one CNC work item for the selected day.
+
+### Label rule
+- primary label = CNC name
+- secondary label = OrderNo in parentheses
+
+Example:
+- `S1-02535084 (2539821)`
+- `P4-02536627 (2539079)`
+
+### Route rule
+#### S machine
+- sorting required
+- flow = Load → Cut → Sort → Unload
+
+#### P machine
+- no sorting
+- flow = Load → Cut → Unload
+
+### Important
+This timeline is intentionally simplified for readability.
+It is a UI-oriented reconstruction of the CNC work flow for one day.
+
+---
+
+## 9. Analyzer Design
 
 Detailed responsibilities are defined in:
 
@@ -145,6 +180,9 @@ Analyze SORT and non-SORT from sorter perspective.
 Analyze transfer / loading / unloading / pallet / warehouse related activity.
 System activity may overlap with CUT / SORT.
 
+#### SheetAnalyzer
+Reconstruct CNC-based daily timeline rows for the timeline view.
+
 #### LossAnalyzer
 Analyze non-value-added time during automatic operation.
 Loss is treated as a phenomenon.
@@ -158,7 +196,7 @@ Return improvement priority based on duration, recurrence, and interruption seve
 
 ---
 
-## 9. Loss / Error / Bottleneck Boundary（重要）
+## 10. Loss / Error / Bottleneck Boundary（重要）
 
 The boundary between these analyzers must remain clear.
 
@@ -185,12 +223,13 @@ This separation is mandatory.
 
 ---
 
-## 10. Builder Role
+## 11. Builder Role
 
 Builders must:
 
 - format analyzer outputs for UI
 - prepare graph-friendly and card-friendly structures
+- prepare CNC timeline rows for TimelineView without changing analyzer meaning
 
 Builders must NOT:
 
@@ -200,7 +239,7 @@ Builders must NOT:
 
 ---
 
-## 11. Service Role
+## 12. Service Role
 
 ### DashboardService
 Acts as the orchestrator between Core and GUI.
@@ -209,6 +248,7 @@ Responsibilities:
 - call analyzers in correct order
 - provide integrated analysis results
 - feed ViewModel safely
+- provide KPI data and CNC timeline data independently
 
 ### SqliteService
 Handles:
@@ -222,7 +262,7 @@ SqliteService must NOT:
 
 ---
 
-## 12. GUI Architecture
+## 13. GUI Architecture
 
 Laser.GUI is presentation only.
 
@@ -230,16 +270,30 @@ GUI may:
 - trigger LoadLog(DateTime)
 - bind ViewModel
 - display results
+- show scrollable CNC timeline rows in the existing timeline area
 
 GUI must NOT:
 - calculate KPI
 - decide date ownership
 - perform analyzer logic
 - access SQLite directly
+- infer S/P machine type rules by itself
 
 ---
 
-## 13. Key Rules（AI用）
+## 14. KPI Protection Rule（重要）
+
+KPI panel and CNC timeline are separate concerns.
+
+Therefore:
+
+- KPI logic must stay independent
+- Timeline implementation must not redesign KPI behavior
+- Timeline changes must not break KpiPanelView binding or layout
+
+---
+
+## 15. Key Rules（AI用）
 
 Do NOT:
 - break architecture flow
@@ -247,22 +301,25 @@ Do NOT:
 - invent new architecture layers
 - make system/cut/sort mutually exclusive without log evidence
 - redefine the denominator in each analyzer
+- break KPI panel while implementing timeline
 
 Do:
 - preserve shared daily operating time
 - preserve day-crossing split logic
 - preserve analyzer responsibility boundaries
 - keep changes minimal
+- implement CNC-based timeline inside the existing timeline panel
 
 ---
 
-## 14. Design Philosophy
+## 16. Design Philosophy
 
 This architecture is based on:
 
 - shared denominator
 - strict day-boundary handling
 - independent machine / sorter / system views
+- readable CNC-based timeline
 - clear separation of phenomenon / abnormality / priority
 
 This is necessary to produce analysis that is actually useful for shop-floor improvement.

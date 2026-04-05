@@ -52,6 +52,7 @@ AI MUST NOT:
 * refactor unrelated code
 * move cross-midnight logic into GUI or Builder
 * mix machine-role results into one fake exclusive state model without design approval
+* break or redesign the KPI panel while implementing timeline improvements
 
 ---
 
@@ -64,6 +65,8 @@ AI CAN:
 * add event handling
 * update UI content within constraints
 * add or refine models needed for schedule-based analysis
+* improve TimelineView and BottomPanelView content while preserving layout
+* add CNC-based timeline DTOs and analyzer output models if required
 
 ---
 
@@ -87,6 +90,7 @@ GUI is ONLY for:
 * contain business logic
 * clip cross-midnight intervals
 * classify CUT / SORT / SYSTEM time
+* infer S/P machine type logic by itself
 
 ---
 
@@ -95,6 +99,8 @@ GUI is ONLY for:
 * call LoadLog(DateTime)
 * bind ViewModel
 * update UI components
+* scroll / virtualize rows for timeline display
+* show CNC name as primary label and OrderNo as secondary label
 
 ---
 
@@ -110,6 +116,7 @@ Analyzer is responsible for:
 * time analysis
 * machine-role analysis
 * interruption / error analysis
+* CNC-based daily timeline reconstruction
 
 ---
 
@@ -170,6 +177,7 @@ Builder is responsible for:
 
 * formatting data for UI
 * converting analyzer results into cards, charts, tables, and text
+* converting CNC timeline analysis result into TimelineView-friendly rows
 
 ---
 
@@ -180,6 +188,7 @@ Builder is responsible for:
 * implement business logic
 * reconstruct schedule intervals
 * decide cross-midnight ownership
+* reinterpret event meaning
 
 ---
 
@@ -216,6 +225,7 @@ Responsibilities:
 * call ScheduleSplitter
 * call MachineAnalyzer / SorterAnalyzer / SystemAnalyzer
 * call LossAnalyzer / ErrorAnalyzer / BottleneckAnalyzer / TimeEfficiencyAnalyzer
+* call SheetAnalyzer for CNC timeline reconstruction if used for timeline purpose
 * aggregate results
 * pass data to ViewModel
 
@@ -246,6 +256,7 @@ AI MUST follow:
 * DO NOT change layout structure
 * DO NOT add new panels
 * DO NOT move existing components
+* DO NOT break existing KPI panel behavior or bindings
 
 ---
 
@@ -254,6 +265,53 @@ AI MUST follow:
 * add controls inside HeaderView
 * update content inside existing panels
 * change binding targets as needed to show corrected analyzer results
+* replace existing timeline content with CNC-based gantt rows inside the same timeline area
+* add vertical scrolling for CNC timeline rows
+
+---
+
+# ⚙️ Timeline-Specific Rule（重要）
+
+The timeline area must show:
+
+* one row = one CNC
+* primary label = CNC name
+* secondary label = OrderNo in parentheses
+
+Examples:
+
+* S1-02535084 (2539821)
+* P4-02536627 (2539079)
+
+Classification rule:
+
+* S**** = sorting required
+* P**** = no sorting
+
+Expected simplified flow:
+
+* S-machine: Load → Cut → Sort → Unload
+* P-machine: Load → Cut → Unload
+
+The UI should keep this structure simple and readable.
+
+---
+
+# ⚙️ KPI Panel Protection Rule（最重要）
+
+When implementing CNC timeline or bottom/timeline panel improvements:
+
+AI MUST NOT:
+
+* redesign KpiPanelView layout
+* remove existing KPI bindings
+* change pie chart behavior unless explicitly requested
+* mix timeline requirements into KPI logic
+
+AI MAY:
+
+* reuse already-calculated KPI results
+* keep KpiPanelView untouched if no direct change is required
 
 ---
 
@@ -266,6 +324,7 @@ When implementing features:
 3. Do NOT modify unrelated files
 4. Do NOT rename existing classes or methods unless the design truly requires it
 5. When changing analyzer behavior, update docs and code consistently
+6. Preserve KpiPanelView unless the task explicitly asks for KPI changes
 
 ---
 
@@ -298,6 +357,7 @@ However, if the design rule is already defined in these docs:
 * Stability over optimization
 * Consistency over flexibility
 * Daily denominator must be trustworthy
+* Timeline must be readable at a glance on the shop floor
 
 ---
 
@@ -325,8 +385,9 @@ This system is based on:
 * MachineAnalyzer
 * SorterAnalyzer
 * SystemAnalyzer
+* SheetAnalyzer / timeline analyzer output for CNC rows
 
-👉 who used that time
+👉 who used that time and how each CNC moved through the system
 
 ---
 
@@ -356,4 +417,4 @@ These layers must remain independent.
 
 AI should behave like:
 
-"A careful engineer who respects architecture, preserves the validated daily analysis rule, and avoids inventing hidden assumptions."
+"A careful engineer who respects architecture, preserves the validated daily analysis rule, protects the KPI panel, and improves the CNC-based timeline without inventing hidden assumptions."

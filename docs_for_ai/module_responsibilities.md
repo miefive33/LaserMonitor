@@ -4,8 +4,8 @@
 「どこに何を書くか迷わない」ための絶対ルールである。
 
 今回の更新では、
-総稼働時間・機器稼働時間・アイドル時間の定義が明確になったため、
-次に必要な Loss / Error / Bottleneck の責務分離を反映する。
+CNC単位タイムライン表示の責務を明確化し、
+KPIパネル保護ルールを追加する。
 
 ---
 
@@ -23,6 +23,7 @@
 - ErrorData
 - TimeEfficiencyResult
 - TargetMachines
+- CNCタイムライン表示用DTO（必要に応じて追加可）
 
 ## ルール
 ✔ プロパティのみ  
@@ -54,6 +55,7 @@
 - 日跨ぎ分割
 - ロス分析
 - エラー分析
+- CNCタイムライン再構築
 
 ---
 
@@ -95,6 +97,7 @@ ScheduleSplitter
 - 日次帰属判定
 - 機器別集計
 - Loss / Error / Bottleneck 判定
+- CNCタイムラインの工程割付
 
 ---
 
@@ -169,7 +172,34 @@ System の動作は CUT / SORT と重なり得る。
 
 ---
 
-## 3.7 LossAnalyzer
+## 3.7 SheetAnalyzer
+
+### 役割
+CNC単位タイムライン用の工程列を再構築する。
+
+### 責務
+- 1行 = 1CNC のタイムライン行を生成する
+- CNC名を主名称として扱う
+- OrderNo をサブ名称として扱う
+- CNC名の接頭辞でフローを切り替える
+  - `S****` → Load / Cut / Sort / Unload
+  - `P****` → Load / Cut / Unload
+- 対象日の中で各工程の開始・終了を求める
+- GUIで描画しやすい単純な工程列へ落とす
+
+### 重要
+SheetAnalyzer は
+UI描画そのものをしてはいけない。
+
+### NOT responsible
+- 色決定
+- スクロール制御
+- 行高制御
+- KPI計算
+
+---
+
+## 3.8 LossAnalyzer
 
 ### 役割
 自動運転中の非付加価値時間を
@@ -204,7 +234,7 @@ System の動作は CUT / SORT と重なり得る。
 
 ---
 
-## 3.8 ErrorAnalyzer
+## 3.9 ErrorAnalyzer
 
 ### 役割
 明示的な異常イベントと、その影響を扱う。
@@ -227,7 +257,7 @@ ErrorAnalyzer は
 
 ---
 
-## 3.9 TimeEfficiencyAnalyzer
+## 3.10 TimeEfficiencyAnalyzer
 
 ### 役割
 時間の使われ方を比較しやすい形でまとめる。
@@ -239,7 +269,7 @@ ErrorAnalyzer は
 
 ---
 
-## 3.10 BottleneckAnalyzer
+## 3.11 BottleneckAnalyzer
 
 ### 役割
 改善優先順位を決める。
@@ -282,6 +312,22 @@ ErrorAnalyzer は
 
 ---
 
+## Timeline表示用Builder処理
+
+### 役割
+- SheetAnalyzer の結果を TimelineView 向けに整形する
+- CNC表示名
+- 工程バー配列
+- 時間軸に対する描画用データ
+を作る
+
+### 禁止
+❌ CNC工程判定  
+❌ S/Pルール判定  
+❌ ログ直接解釈  
+
+---
+
 # 5. Services
 
 ## SqliteService
@@ -302,6 +348,7 @@ GUI / ViewModel が使う結果をまとめる。
 - Analyzer呼び出しの統括
 - 結果の受け渡し
 - 必要な分析順序の制御
+- KPIデータとタイムラインデータを独立して供給する
 
 ### 禁止
 ❌ 分析ロジック実装  
@@ -325,14 +372,33 @@ GUI / ViewModel が使う結果をまとめる。
 ✔ 表示のみ  
 ✔ コマンド発火  
 ✔ Serviceの結果を受け取る  
+✔ 既存タイムライン領域に CNC行を表示する  
+✔ 縦スクロールを持たせる  
 
 ❌ 計算禁止  
 ❌ Analyzer呼び出しの乱立  
 ❌ DB直接操作禁止  
+❌ KPIパネル再設計禁止  
 
 ---
 
-# 7. CLI
+# 7. KPI Panel Protection Rule（最重要）
+
+KpiPanelView は今回のタイムライン対応で壊してはいけない。
+
+### 禁止
+- 既存のKPI構造変更
+- KPI用バインディング破壊
+- タイムライン都合でのKPI計算変更
+- タイムライン表示の責務をKPIパネルへ混入
+
+### 許可
+- KPIと無関係な画面領域だけ変更
+- KpiPanelView を未変更のまま維持
+
+---
+
+# 8. CLI
 
 テスト専用
 
@@ -340,10 +406,11 @@ GUI / ViewModel が使う結果をまとめる。
 - Parser検証
 - Analyzer検証
 - 実ログでの集計確認
+- CNCタイムライン再構築結果の確認
 
 ---
 
-# 8. 最重要ルール
+# 9. 最重要ルール
 
 Analyzer = 頭脳  
 Builder = 翻訳  
@@ -355,6 +422,7 @@ GUI = 表示
 - Loss = 現象
 - Error = 異常原因
 - Bottleneck = 改善優先度
+- Timeline = CNC単位の工程可視化
 
 という境界を明確化する。
 
